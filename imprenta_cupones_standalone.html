@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imprenta de Cupones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg:#f5f7f2;
+    --surface:#ffffff;
+    --surface-2:#edf1ea;
+    --ink:#182019;
+    --muted:#5c6b61;
+    --line:#dde3d9;
+    --accent:#0d6b52;
+    --accent-ink:#ffffff;
+    --cta:#b45309;
+    --cta-ink:#fff7ee;
+    --shadow: 0 1px 2px rgba(24,32,25,.06), 0 10px 28px -14px rgba(24,32,25,.22);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10140f;
+      --surface:#171d18;
+      --surface-2:#1e261f;
+      --ink:#e9f0ea;
+      --muted:#98aa9d;
+      --line:#2a332b;
+      --accent:#43d3a0;
+      --accent-ink:#07130e;
+      --cta:#e58a3c;
+      --cta-ink:#1c1103;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10140f;
+    --surface:#171d18;
+    --surface-2:#1e261f;
+    --ink:#e9f0ea;
+    --muted:#98aa9d;
+    --line:#2a332b;
+    --accent:#43d3a0;
+    --accent-ink:#07130e;
+    --cta:#e58a3c;
+    --cta-ink:#1c1103;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.6);
+  }
+
+  /* fixed tokens for the printed ticket itself — the ticket is paper, it
+     never follows the viewer's theme. Accent/CTA are user-editable via
+     the color pickers and pushed in as CSS custom properties. */
+  :root{
+    --tk-accent:#0d6b52;
+    --tk-cta:#b45309;
+    --tk-num:#c0231e;
+    --tk-wm-opacity:0.1;
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ color-scheme: light dark; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Public Sans', system-ui, -apple-system, sans-serif;
+    font-size:14px;
+    line-height:1.45;
+  }
+  h1,h2{ font-family:'Zilla Slab', Georgia, serif; text-wrap:balance; margin:0; }
+  .num{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+  a{ color:var(--accent); }
+  button{ font:inherit; }
+  ::selection{ background:var(--accent); color:var(--accent-ink); }
+  :focus-visible{ outline:2.5px solid var(--accent); outline-offset:2px; border-radius:4px; }
+
+  /* ---------------- shell / topbar ---------------- */
+  .shell{ max-width:1400px; margin:0 auto; padding:20px 24px 40px; }
+  .topbar{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
+    flex-wrap:wrap; margin-bottom:18px;
+  }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand-mark{
+    font-size:30px; line-height:1;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,.15));
+  }
+  .brand h1{ font-size:24px; font-weight:700; color:var(--ink); }
+  .brand .tagline{ margin:2px 0 0; color:var(--muted); font-size:13.5px; max-width:46ch; }
+  .stats{
+    display:flex; gap:18px; align-items:baseline;
+    background:var(--surface); border:1px solid var(--line); border-radius:999px;
+    padding:9px 20px; box-shadow:var(--shadow);
+  }
+  .stats .stat{ text-align:center; }
+  .stats .stat b{ display:block; font-size:16px; }
+  .stats .stat span{ display:block; font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+
+  /* ---------------- workbench layout ---------------- */
+  .workbench{ display:grid; grid-template-columns: 340px 1fr; gap:20px; align-items:start; }
+  @media (max-width: 880px){ .workbench{ grid-template-columns: 1fr; } }
+
+  .panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .controls{ padding:18px 18px 22px; max-height:calc(100vh - 120px); overflow-y:auto; position:sticky; top:20px; }
+  @media (max-width: 880px){ .controls{ position:static; max-height:none; } }
+
+  .field-group{ padding-bottom:16px; margin-bottom:16px; border-bottom:1px dashed var(--line); }
+  .field-group:last-of-type{ border-bottom:none; margin-bottom:0; }
+  .field-group h2{
+    font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.07em;
+    color:var(--accent); margin-bottom:10px; font-family:'Public Sans',sans-serif;
+  }
+
+  label{ display:block; font-size:12.5px; color:var(--muted); margin-bottom:10px; }
+  label > span, label > .lbl{ display:block; margin-bottom:4px; color:var(--ink); font-weight:500; }
+  input[type="text"], input[type="number"], input[type="date"]{
+    width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px;
+    background:var(--surface-2); color:var(--ink); font-size:13px; font-family:inherit;
+  }
+  input[type="text"]:focus, input[type="number"]:focus{ outline:2.5px solid var(--accent); outline-offset:0; border-color:transparent; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hint{ font-size:11.5px; color:var(--muted); margin:6px 0 0; }
+  .warn{ font-size:11.5px; color:var(--cta); margin:6px 0 0; display:none; }
+  .warn.show{ display:block; }
+
+  input[type="color"]{
+    -webkit-appearance:none; appearance:none; width:36px; height:28px; padding:0;
+    border:1px solid var(--line); border-radius:6px; background:none; cursor:pointer;
+  }
+  input[type="color"]::-webkit-color-swatch{ border:none; border-radius:5px; }
+  .color-row{ display:flex; align-items:center; gap:10px; }
+  .color-row .lbl{ flex:1; }
+
+  .list-row{ display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+  .list-row input{ flex:1; }
+  .list-row input.badge-input{ flex:0 0 52px; text-align:center; }
+  .icon-btn{
+    flex:0 0 auto; width:28px; height:28px; border-radius:6px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:15px; line-height:1;
+  }
+  .icon-btn:hover{ color:var(--cta); border-color:var(--cta); }
+
+  .add-btn{
+    width:100%; margin-top:4px; padding:7px 10px; border:1px dashed var(--accent);
+    border-radius:7px; background:none; color:var(--accent); font-weight:600; font-size:12.5px; cursor:pointer;
+  }
+  .add-btn:hover{ background:var(--surface-2); }
+
+  .ghost{
+    width:100%; margin-top:6px; padding:9px 10px; border:1px solid var(--line); border-radius:8px;
+    background:none; color:var(--muted); font-size:12.5px; cursor:pointer;
+  }
+  .ghost:hover{ color:var(--ink); border-color:var(--ink); }
+
+  input[type="file"]{ font-size:12px; color:var(--muted); width:100%; }
+  #watermarkPreviewRow{ display:flex; align-items:center; gap:10px; margin:8px 0; }
+  #watermarkThumb{ width:44px; height:44px; object-fit:contain; border:1px solid var(--line); border-radius:6px; background:var(--surface-2); padding:3px; }
+  input[type="range"]{ width:100%; accent-color:var(--accent); }
+  .range-row{ display:flex; align-items:center; gap:10px; }
+  .range-row output{ font-family:'IBM Plex Mono',monospace; font-size:12px; width:34px; text-align:right; color:var(--muted); }
+
+  /* ---------------- preview pane ---------------- */
+  .preview{ padding:18px; }
+  .preview-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:8px; }
+  .preview-toolbar .label{ font-size:12.5px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
+  .cta{
+    background:var(--cta); color:var(--cta-ink); border:none; border-radius:8px;
+    padding:11px 20px; font-weight:700; font-size:14px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .cta:hover{ filter:brightness(1.06); }
+  .cta:active{ transform:translateY(1px); }
+  .cta[disabled]{ opacity:.6; cursor:progress; }
+  .print-hint{ font-size:11.5px; color:var(--muted); margin:0 0 14px; }
+
+  .sheet-stage{ display:flex; justify-content:center; padding:8px; background:var(--surface-2); border-radius:8px; }
+  #previewOuter{ position:relative; overflow:hidden; }
+  #previewSheet{ transform-origin: top left; }
+
+  /* ================= COUPON DESIGN (shared: preview + print) ================= */
+  .a4-sheet{
+    width:297mm; min-height:210mm; background:#ffffff; padding:6mm;
+    display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:31mm;
+    row-gap:2mm; column-gap:4mm;
+    font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color:#0f172a;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  }
+  .coupon{
+    position:relative; display:flex; border:1px dashed #9db3ab; border-radius:2mm;
+    overflow:hidden; background:#ffffff; height:31mm;
+  }
+  .wm{
+    position:absolute; inset:0; background-repeat:no-repeat; background-position:center;
+    background-size:contain; opacity:var(--tk-wm-opacity); pointer-events:none; z-index:0;
+  }
+  .stub, .main{ position:relative; z-index:1; }
+  .stub{
+    width:30%; flex:0 0 30%; background:color-mix(in srgb, var(--tk-accent) 9%, white);
+    border-right:1px dashed #9db3ab; padding:2mm 2.4mm; display:flex; flex-direction:column;
+  }
+  .stub-top{ display:flex; align-items:center; justify-content:space-between; gap:1mm; }
+  .stub-org{
+    font-size:4.3pt; font-weight:700; letter-spacing:.2pt; text-transform:uppercase; line-height:1.15;
+    color:color-mix(in srgb, var(--tk-accent) 80%, black 20%);
+  }
+  .ticket-no{
+    font-family:'Courier New', monospace; font-weight:700; font-size:8.4pt; color:var(--tk-num);
+    border:.6pt solid color-mix(in srgb, var(--tk-num) 35%, white); border-radius:1mm;
+    padding:.3mm 1.1mm; background:color-mix(in srgb, var(--tk-num) 6%, white); white-space:nowrap;
+  }
+  .stub-title{
+    font-size:5.4pt; font-weight:700; color:#0f172a; text-transform:uppercase; letter-spacing:.3pt;
+    margin:1.4mm 0 1.6mm; padding-bottom:.8mm; border-bottom:.6pt solid color-mix(in srgb, var(--tk-accent) 25%, white);
+  }
+  .stub-fields{ flex:1; display:flex; flex-direction:column; justify-content:space-between; }
+  .field-label{ display:block; font-size:3.9pt; font-weight:700; letter-spacing:.2pt; text-transform:uppercase; color:#4b6b62; margin-bottom:.4mm; }
+  .field-line{ border-bottom:.6pt solid #9fbdb3; height:2.6mm; }
+
+  .main{ flex:1; padding:2mm 3mm 1.6mm; display:flex; flex-direction:column; min-width:0; }
+  .main-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:2mm; }
+  .main-org{
+    font-size:4.6pt; font-weight:700; text-transform:uppercase; letter-spacing:.3pt; line-height:1.1;
+    color:color-mix(in srgb, var(--tk-accent) 80%, black 20%);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .main-title{
+    font-size:9.6pt; font-weight:800; margin:.5mm 0 0; line-height:1.08; text-transform:uppercase;
+    color:color-mix(in srgb, var(--tk-accent) 65%, black 35%);
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .main-subtitle{
+    font-size:5pt; font-weight:600; margin-top:.4mm; color:color-mix(in srgb, var(--tk-accent) 80%, black 20%);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .prizes{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:min-content; column-gap:3mm; row-gap:.6mm; margin:1.4mm 0; }
+  .prize{ display:flex; align-items:center; gap:1mm; min-width:0; }
+  .prize-badge{
+    flex:none; width:3.6mm; height:3.6mm; border-radius:50%; background:var(--tk-accent); color:#fff;
+    font-size:3.3pt; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .prize-text{ font-size:5pt; color:#1e293b; line-height:1.08; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .main-footer{
+    margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:2mm;
+    border-top:.6pt solid #e6c98a; padding-top:1mm;
+  }
+  .footer-meta{ font-size:4.4pt; color:#475569; line-height:1.3; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .footer-meta b{ color:#0f172a; }
+  .price-tag{ flex:none; background:var(--tk-cta); color:#fff; font-weight:700; font-size:5.4pt; padding:.9mm 2mm; border-radius:1mm; white-space:nowrap; }
+
+  /* ---------------- print ---------------- */
+  .print-only{ display:none; }
+  @media print{
+    .no-print{ display:none !important; }
+    .print-only{ display:block; }
+    @page{ size:A4 landscape; margin:0; }
+    html, body{ background:#fff; }
+    .a4-sheet{ box-shadow:none; page-break-after:always; margin:0 auto; }
+    .a4-sheet:last-child{ page-break-after:auto; }
+  }
+</style>
+</head>
+<body>
+
+
+<div class="shell no-print">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">🎟️</span>
+      <div>
+        <h1>Imprenta de Cupones</h1>
+        <p class="tagline">Editá el diseño del talonario y generá el PDF con toda la numeración lista para cortar.</p>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="workbench">
+    <aside class="panel controls" aria-label="Configuración del cupón">
+      <form id="couponForm" autocomplete="off">
+
+        <section class="field-group">
+          <h2>Identidad</h2>
+          <label for="orgFull"><span class="lbl">Organización (nombre completo)</span>
+            <input type="text" id="orgFull" maxlength="60"></label>
+          <label for="orgShort"><span class="lbl">Nombre corto (para el talón)</span>
+            <input type="text" id="orgShort" maxlength="26"></label>
+          <div class="color-row">
+            <div class="lbl" style="flex:1">Color institucional</div>
+            <input type="color" id="accentColor" value="#0d6b52">
+          </div>
+          <div class="color-row" style="margin-top:8px;">
+            <div class="lbl" style="flex:1">Color del bono / CTA</div>
+            <input type="color" id="ctaColor" value="#b45309">
+          </div>
+        </section>
+
+        <section class="field-group">
+          <h2>Cupón</h2>
+          <label for="title"><span class="lbl">Título principal</span>
+            <input type="text" id="title" maxlength="60"></label>
+          <label for="subtitle"><span class="lbl">Subtítulo</span>
+            <input type="text" id="subtitle" maxlength="70"></label>
+          <div class="row2">
+            <label for="drawDate"><span class="lbl">Fecha del sorteo</span>
+              <input type="text" id="drawDate" maxlength="30"></label>
+            <label for="place"><span class="lbl">Lugar</span>
+              <input type="text" id="place" maxlength="30"></label>
+          </div>
+          <label for="price"><span class="lbl">Valor del bono</span>
+            <input type="text" id="price" maxlength="18" placeholder="Ej: $2.000 (vacío = línea para completar a mano)"></label>
+        </section>
+
+        <section class="field-group">
+          <h2>Premios</h2>
+          <div id="prizeList"></div>
+          <button type="button" class="add-btn" id="addPrize">+ Agregar premio</button>
+          <p class="hint">El texto identificador (badge) puede ser un número o un rango, ej. "6-14".</p>
+          <p class="warn" id="prizeWarn">Con muchos premios el texto se reduce para que entren sin superponerse. Se recomiendan hasta 8.</p>
+        </section>
+
+        <section class="field-group">
+          <h2>Campos del talón de control</h2>
+          <div id="stubList"></div>
+          <button type="button" class="add-btn" id="addStubField">+ Agregar campo</button>
+          <p class="hint">Recomendado: 3 a 5 campos para mantener buena legibilidad.</p>
+        </section>
+
+        <section class="field-group">
+          <h2>Numeración</h2>
+          <div class="row2">
+            <label for="startNumber"><span class="lbl">Número inicial</span>
+              <input type="number" id="startNumber" min="0" max="999999" step="1"></label>
+            <label for="totalCoupons"><span class="lbl">Cantidad de cupones</span>
+              <input type="number" id="totalCoupons" min="1" max="5000" step="1"></label>
+          </div>
+          <p class="hint">12 cupones por hoja A4 horizontal (6 filas × 2 columnas), listos para 1 corte vertical y 5 horizontales.</p>
+        </section>
+
+        <section class="field-group">
+          <h2>Marca de agua</h2>
+          <label for="watermarkFile"><span class="lbl">Imagen de fondo del cupón</span>
+            <input type="file" id="watermarkFile" accept="image/*"></label>
+          <div id="watermarkPreviewRow" hidden>
+            <img id="watermarkThumb" alt="Marca de agua cargada">
+            <button type="button" class="icon-btn" id="removeWatermark" title="Quitar imagen">✕</button>
+          </div>
+          <div class="range-row">
+            <input type="range" id="watermarkOpacity" min="3" max="40" value="10">
+            <output id="watermarkOpacityOut">10%</output>
+          </div>
+          <p class="hint">Se aplica de fondo, detrás del texto, en cada cupón.</p>
+        </section>
+
+        <button type="button" class="ghost" id="resetBtn">Restablecer valores por defecto</button>
+      </form>
+    </aside>
+
+    <main class="panel preview" aria-label="Vista previa e impresión">
+      <div class="preview-toolbar">
+        <span class="label">Vista previa — hoja 1</span>
+        <button type="button" class="cta" id="printBtn">🖨️ Generar PDF / Imprimir talonario</button>
+      </div>
+      <p class="print-hint">En el diálogo de impresión elegí “Guardar como PDF”, papel A4 horizontal, márgenes “Ninguno” y activá “Gráficos de fondo” para que se vean los colores.</p>
+      <div class="sheet-stage">
+        <div id="previewOuter">
+          <div class="a4-sheet" id="previewSheet"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="printArea" class="print-only"></div>
+
+
+<script>
+(function(){
+  "use strict";
+  var MM_PX = 96/25.4;
+  var STORAGE_KEY = "imprenta_cupones_state_v1";
+
+  var defaults = {
+    orgFull: "Asociación El Portal del Palmeral",
+    orgShort: "Portal del Palmeral",
+    title: "¡Gran Sorteo Anual 2026!",
+    subtitle: "Bono Contribución · 14 oportunidades de ganar",
+    drawDate: "17 de Octubre de 2026",
+    place: "Sede de la Asociación",
+    price: "",
+    accent: "#0d6b52",
+    cta: "#b45309",
+    prizes: [
+      {badge:"1", text:"Cafetera + Tostadora"},
+      {badge:"2", text:"Pava eléctrica"},
+      {badge:"3", text:"Set de 6 vasos + canasta"},
+      {badge:"4", text:"Set de tuppers"},
+      {badge:"5", text:"Prenda de tejido artesanal"},
+      {badge:"6-14", text:"Premios sorpresa"}
+    ],
+    stubFields: ["Nombre y apellido","Teléfono / WhatsApp","Email / dirección","Vendedor"],
+    startNumber: 1,
+    totalCoupons: 1000,
+    watermark: null,
+    watermarkOpacity: 10
+  };
+
+  var state = null;
+
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        return Object.assign({}, defaults, parsed);
+      }
+    }catch(e){}
+    return JSON.parse(JSON.stringify(defaults));
+  }
+
+  function saveState(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  // ---------------- form <-> state wiring ----------------
+  var $ = function(id){ return document.getElementById(id); };
+
+  function fillFormFromState(){
+    $("orgFull").value = state.orgFull;
+    $("orgShort").value = state.orgShort;
+    $("accentColor").value = state.accent;
+    $("ctaColor").value = state.cta;
+    $("title").value = state.title;
+    $("subtitle").value = state.subtitle;
+    $("drawDate").value = state.drawDate;
+    $("place").value = state.place;
+    $("price").value = state.price;
+    $("startNumber").value = state.startNumber;
+    $("totalCoupons").value = state.totalCoupons;
+    $("watermarkOpacity").value = state.watermarkOpacity;
+    $("watermarkOpacityOut").textContent = state.watermarkOpacity + "%";
+    renderPrizeList();
+    renderStubList();
+    renderWatermarkRow();
+  }
+
+  function renderPrizeList(){
+    var wrap = $("prizeList");
+    wrap.innerHTML = "";
+    state.prizes.forEach(function(p, i){
+      var row = document.createElement("div");
+      row.className = "list-row";
+      row.innerHTML =
+        '<input type="text" class="badge-input" data-role="badge" data-i="'+i+'" maxlength="6" value="'+escAttr(p.badge)+'" aria-label="Identificador del premio">' +
+        '<input type="text" data-role="text" data-i="'+i+'" maxlength="60" value="'+escAttr(p.text)+'" aria-label="Descripción del premio">' +
+        '<button type="button" class="icon-btn" data-role="del-prize" data-i="'+i+'" title="Quitar premio">✕</button>';
+      wrap.appendChild(row);
+    });
+    $("prizeWarn").classList.toggle("show", state.prizes.length > 8);
+  }
+
+  function renderStubList(){
+    var wrap = $("stubList");
+    wrap.innerHTML = "";
+    state.stubFields.forEach(function(f, i){
+      var row = document.createElement("div");
+      row.className = "list-row";
+      row.innerHTML =
+        '<input type="text" data-role="stub" data-i="'+i+'" maxlength="30" value="'+escAttr(f)+'" aria-label="Campo del talón">' +
+        '<button type="button" class="icon-btn" data-role="del-stub" data-i="'+i+'" title="Quitar campo">✕</button>';
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderWatermarkRow(){
+    var row = $("watermarkPreviewRow");
+    if(state.watermark){
+      row.hidden = false;
+      $("watermarkThumb").src = state.watermark;
+    } else {
+      row.hidden = true;
+      $("watermarkThumb").src = "";
+    }
+  }
+
+  function escAttr(s){
+    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+  }
+  function escText(s){
+    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // ---------------- event wiring ----------------
+  var simpleFields = [
+    ["orgFull","orgFull"], ["orgShort","orgShort"], ["title","title"],
+    ["subtitle","subtitle"], ["drawDate","drawDate"], ["place","place"], ["price","price"]
+  ];
+  simpleFields.forEach(function(pair){
+    $(pair[0]).addEventListener("input", function(){
+      state[pair[1]] = this.value;
+      onStateChanged();
+    });
+  });
+
+  $("accentColor").addEventListener("input", function(){ state.accent = this.value; onStateChanged(); });
+  $("ctaColor").addEventListener("input", function(){ state.cta = this.value; onStateChanged(); });
+
+  $("startNumber").addEventListener("input", function(){
+    var v = parseInt(this.value, 10);
+    state.startNumber = isNaN(v) ? 1 : Math.max(0, v);
+    onStateChanged();
+  });
+  $("totalCoupons").addEventListener("input", function(){
+    var v = parseInt(this.value, 10);
+    if(isNaN(v)) v = 1;
+    v = Math.max(1, Math.min(5000, v));
+    state.totalCoupons = v;
+    onStateChanged();
+  });
+
+  $("prizeList").addEventListener("input", function(e){
+    var t = e.target;
+    var i = parseInt(t.getAttribute("data-i"), 10);
+    var role = t.getAttribute("data-role");
+    if(role === "badge") state.prizes[i].badge = t.value;
+    if(role === "text") state.prizes[i].text = t.value;
+    onStateChanged(true);
+  });
+  $("prizeList").addEventListener("click", function(e){
+    var t = e.target.closest('[data-role="del-prize"]');
+    if(!t) return;
+    var i = parseInt(t.getAttribute("data-i"), 10);
+    state.prizes.splice(i, 1);
+    renderPrizeList();
+    onStateChanged();
+  });
+  $("addPrize").addEventListener("click", function(){
+    if(state.prizes.length >= 20) return;
+    state.prizes.push({badge:String(state.prizes.length+1), text:"Nuevo premio"});
+    renderPrizeList();
+    onStateChanged();
+  });
+
+  $("stubList").addEventListener("input", function(e){
+    var t = e.target;
+    if(t.getAttribute("data-role") !== "stub") return;
+    var i = parseInt(t.getAttribute("data-i"), 10);
+    state.stubFields[i] = t.value;
+    onStateChanged(true);
+  });
+  $("stubList").addEventListener("click", function(e){
+    var t = e.target.closest('[data-role="del-stub"]');
+    if(!t) return;
+    var i = parseInt(t.getAttribute("data-i"), 10);
+    state.stubFields.splice(i, 1);
+    renderStubList();
+    onStateChanged();
+  });
+  $("addStubField").addEventListener("click", function(){
+    if(state.stubFields.length >= 8) return;
+    state.stubFields.push("Nuevo campo");
+    renderStubList();
+    onStateChanged();
+  });
+
+  $("watermarkOpacity").addEventListener("input", function(){
+    state.watermarkOpacity = parseInt(this.value, 10);
+    $("watermarkOpacityOut").textContent = state.watermarkOpacity + "%";
+    onStateChanged(true);
+  });
+
+  $("watermarkFile").addEventListener("change", function(){
+    var file = this.files && this.files[0];
+    if(!file) return;
+    if(!file.type.startsWith("image/")){ return; }
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var img = new Image();
+      img.onload = function(){
+        var maxDim = 640;
+        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        var w = Math.max(1, Math.round(img.width * scale));
+        var h = Math.max(1, Math.round(img.height * scale));
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        state.watermark = canvas.toDataURL("image/jpeg", 0.82);
+        renderWatermarkRow();
+        onStateChanged();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  $("removeWatermark").addEventListener("click", function(){
+    state.watermark = null;
+    $("watermarkFile").value = "";
+    renderWatermarkRow();
+    onStateChanged();
+  });
+
+  $("resetBtn").addEventListener("click", function(){
+    if(!confirm("¿Restablecer todos los campos a los valores por defecto?")) return;
+    state = JSON.parse(JSON.stringify(defaults));
+    fillFormFromState();
+    onStateChanged();
+  });
+
+  $("printBtn").addEventListener("click", function(){
+    var btn = this;
+    btn.disabled = true;
+    var originalLabel = btn.textContent;
+    btn.textContent = "Generando…";
+    setTimeout(function(){
+      buildPrintArea();
+      setTimeout(function(){
+        window.print();
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }, 30);
+    }, 20);
+  });
+
+  // ---------------- change pipeline ----------------
+  var debounceTimer = null;
+  function onStateChanged(light){
+    saveState();
+    updateStats();
+    if(debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(renderPreview, light ? 90 : 30);
+  }
+
+  function updateStats(){
+    var total = state.totalCoupons;
+    var sheets = Math.ceil(total / 12);
+    var last = state.startNumber + total - 1;
+    $("stats").innerHTML =
+      '<div class="stat"><b class="num">'+total+'</b><span>Cupones</span></div>' +
+      '<div class="stat"><b class="num">'+sheets+'</b><span>Hojas A4</span></div>' +
+      '<div class="stat"><b class="num">'+pad4(state.startNumber)+'–'+pad4(last)+'</b><span>Numeración</span></div>';
+  }
+
+  function pad4(n){
+    n = Math.max(0, n|0);
+    var s = String(n);
+    while(s.length < 4) s = "0"+s;
+    return s;
+  }
+
+  // ---------------- coupon rendering ----------------
+  function prizeFontSizes(count){
+    var extra = Math.max(0, count - 6);
+    return {
+      text: Math.max(3.6, 5 - extra*0.22).toFixed(2) + "pt",
+      badge: Math.max(2.8, 3.3 - extra*0.12).toFixed(2) + "pt",
+      badgeSize: Math.max(2.9, 3.6 - extra*0.08).toFixed(2) + "mm"
+    };
+  }
+
+  function couponInnerHTML(){
+    var fs = prizeFontSizes(state.prizes.length);
+    var prizesHtml = state.prizes.map(function(p){
+      return '<div class="prize">' +
+        '<span class="prize-badge" style="font-size:'+fs.badge+';width:'+fs.badgeSize+';height:'+fs.badgeSize+'">'+escText(p.badge)+'</span>' +
+        '<span class="prize-text" style="font-size:'+fs.text+'">'+escText(p.text)+'</span></div>';
+    }).join("");
+
+    var fieldsHtml = state.stubFields.map(function(label){
+      return '<div class="field"><span class="field-label">'+escText(label)+'</span><div class="field-line"></div></div>';
+    }).join("");
+
+    var priceHtml = state.price
+      ? '<span class="price-tag">'+escText(state.price)+'</span>'
+      : '<span class="price-tag">$ ______</span>';
+
+    var wmHtml = state.watermark ? '<div class="wm" style="background-image:url(\''+state.watermark+'\')"></div>' : "";
+
+    return (
+      wmHtml +
+      '<div class="stub">' +
+        '<div class="stub-top"><span class="stub-org">'+escText(state.orgShort)+'</span><span class="ticket-no" data-role="num"></span></div>' +
+        '<div class="stub-title">Talón de control</div>' +
+        '<div class="stub-fields">'+fieldsHtml+'</div>' +
+      '</div>' +
+      '<div class="main">' +
+        '<div class="main-top">' +
+          '<div style="min-width:0;flex:1">' +
+            '<div class="main-org">'+escText(state.orgFull)+'</div>' +
+            '<div class="main-title">'+escText(state.title)+'</div>' +
+            '<div class="main-subtitle">'+escText(state.subtitle)+'</div>' +
+          '</div>' +
+          '<span class="ticket-no" data-role="num"></span>' +
+        '</div>' +
+        '<div class="prizes">'+prizesHtml+'</div>' +
+        '<div class="main-footer">' +
+          '<div class="footer-meta"><b>Sorteo:</b> '+escText(state.drawDate)+' &nbsp;·&nbsp; <b>Lugar:</b> '+escText(state.place)+'</div>' +
+          priceHtml +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function makeCouponTemplateNode(){
+    var el = document.createElement("div");
+    el.className = "coupon";
+    el.innerHTML = couponInnerHTML();
+    return el;
+  }
+
+  function fillNumber(node, n){
+    var label = "N.º " + pad4(n);
+    var nums = node.querySelectorAll('[data-role="num"]');
+    nums[0].textContent = label;
+    if(nums[1]) nums[1].textContent = label;
+  }
+
+  function applyColorTokens(){
+    document.documentElement.style.setProperty("--tk-accent", state.accent);
+    document.documentElement.style.setProperty("--tk-cta", state.cta);
+    document.documentElement.style.setProperty("--tk-wm-opacity", (state.watermarkOpacity/100).toString());
+  }
+
+  function renderPreview(){
+    applyColorTokens();
+    var sheet = $("previewSheet");
+    sheet.innerHTML = "";
+    var tpl = makeCouponTemplateNode();
+    var count = Math.min(12, state.totalCoupons);
+    for(var i=0;i<count;i++){
+      var node = tpl.cloneNode(true);
+      fillNumber(node, state.startNumber + i);
+      sheet.appendChild(node);
+    }
+    fitPreview();
+  }
+
+  function buildPrintArea(){
+    applyColorTokens();
+    var area = $("printArea");
+    area.innerHTML = "";
+    var tpl = makeCouponTemplateNode();
+    var total = state.totalCoupons;
+    var perSheet = 12;
+    var sheets = Math.ceil(total / perSheet);
+    var frag = document.createDocumentFragment();
+    for(var s=0; s<sheets; s++){
+      var sheetEl = document.createElement("div");
+      sheetEl.className = "a4-sheet";
+      var countOnSheet = Math.min(perSheet, total - s*perSheet);
+      for(var i=0;i<countOnSheet;i++){
+        var n = state.startNumber + s*perSheet + i;
+        var node = tpl.cloneNode(true);
+        fillNumber(node, n);
+        sheetEl.appendChild(node);
+      }
+      frag.appendChild(sheetEl);
+    }
+    area.appendChild(frag);
+  }
+
+  function fitPreview(){
+    var stage = document.querySelector(".sheet-stage");
+    var outer = $("previewOuter");
+    var sheet = $("previewSheet");
+    var available = stage.clientWidth - 16;
+    var naturalW = 297 * MM_PX;
+    var naturalH = 210 * MM_PX;
+    var scale = Math.min(1, available / naturalW);
+    sheet.style.transform = "scale(" + scale + ")";
+    outer.style.width = (naturalW * scale) + "px";
+    outer.style.height = (naturalH * scale) + "px";
+  }
+
+  window.addEventListener("resize", function(){
+    if(debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fitPreview, 100);
+  });
+
+  // ---------------- init ----------------
+  state = loadState();
+  fillFormFromState();
+  updateStats();
+  renderPreview();
+})();
+</script>
+</body>
+</html>
