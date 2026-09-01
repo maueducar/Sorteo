@@ -51,14 +51,22 @@
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.6);
   }
 
-  /* fixed tokens for the printed ticket itself — the ticket is paper, it
-     never follows the viewer's theme. Accent/CTA are user-editable via
-     the color pickers and pushed in as CSS custom properties. */
+  /* fixed/dynamic tokens for the printed ticket itself — the ticket is
+     paper, it never follows the viewer's theme. Accent/CTA colors and the
+     grid/scale values are pushed in from JS as CSS custom properties. */
   :root{
     --tk-accent:#0d6b52;
     --tk-cta:#b45309;
     --tk-num:#c0231e;
     --tk-wm-opacity:0.1;
+    --tk-page-w:297mm;
+    --tk-page-h:210mm;
+    --tk-cols:2;
+    --tk-rows:6;
+    --tk-gap-x:3mm;
+    --tk-gap-y:2mm;
+    --tk-scale-x:1;
+    --tk-scale-y:1;
   }
 
   *,*::before,*::after{ box-sizing:border-box; }
@@ -79,7 +87,7 @@
   :focus-visible{ outline:2.5px solid var(--accent); outline-offset:2px; border-radius:4px; }
 
   /* ---------------- shell / topbar ---------------- */
-  .shell{ max-width:1400px; margin:0 auto; padding:20px 24px 40px; }
+  .shell{ max-width:1440px; margin:0 auto; padding:20px 24px 40px; }
   .topbar{
     display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
     flex-wrap:wrap; margin-bottom:18px;
@@ -126,7 +134,9 @@
   }
   input[type="text"]:focus, input[type="number"]:focus{ outline:2.5px solid var(--accent); outline-offset:0; border-color:transparent; }
   .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row3{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .hint{ font-size:11.5px; color:var(--muted); margin:6px 0 0; }
+  .hint b{ color:var(--ink); font-family:'IBM Plex Mono',monospace; font-weight:600; }
   .warn{ font-size:11.5px; color:var(--cta); margin:6px 0 0; display:none; }
   .warn.show{ display:block; }
 
@@ -138,6 +148,15 @@
   .color-row{ display:flex; align-items:center; gap:10px; }
   .color-row .lbl{ flex:1; }
 
+  .seg{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-bottom:10px; }
+  .seg button{
+    flex:1; border:none; background:var(--surface-2); color:var(--muted); padding:8px 6px;
+    font-size:12.5px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .seg button + button{ border-left:1px solid var(--line); }
+  .seg button[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); }
+  .seg svg{ width:14px; height:14px; flex:none; }
+
   .list-row{ display:flex; gap:6px; align-items:center; margin-bottom:6px; }
   .list-row input{ flex:1; }
   .list-row input.badge-input{ flex:0 0 52px; text-align:center; }
@@ -147,6 +166,14 @@
     font-size:15px; line-height:1;
   }
   .icon-btn:hover{ color:var(--cta); border-color:var(--cta); }
+
+  .stepper{ display:flex; align-items:stretch; border:1px solid var(--line); border-radius:7px; overflow:hidden; background:var(--surface-2); }
+  .stepper button{
+    flex:0 0 30px; border:none; background:transparent; color:var(--accent); font-size:15px; font-weight:700; cursor:pointer;
+  }
+  .stepper button:hover{ background:var(--line); }
+  .stepper input{ border:none; background:none; text-align:center; padding:7px 2px; width:100%; }
+  .stepper input:focus{ outline:none; }
 
   .add-btn{
     width:100%; margin-top:4px; padding:7px 10px; border:1px dashed var(--accent);
@@ -162,6 +189,7 @@
 
   input[type="file"]{ font-size:12px; color:var(--muted); width:100%; }
   #watermarkPreviewRow{ display:flex; align-items:center; gap:10px; margin:8px 0; }
+  #watermarkPreviewRow[hidden]{ display:none; }
   #watermarkThumb{ width:44px; height:44px; object-fit:contain; border:1px solid var(--line); border-radius:6px; background:var(--surface-2); padding:3px; }
   input[type="range"]{ width:100%; accent-color:var(--accent); }
   .range-row{ display:flex; align-items:center; gap:10px; }
@@ -187,16 +215,21 @@
 
   /* ================= COUPON DESIGN (shared: preview + print) ================= */
   .a4-sheet{
-    width:297mm; min-height:210mm; background:#ffffff; padding:6mm;
-    display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:31mm;
-    row-gap:2mm; column-gap:4mm;
-    font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
-    color:#0f172a;
+    width:var(--tk-page-w); height:var(--tk-page-h); background:#ffffff; padding:6mm;
+    display:grid;
+    grid-template-columns:repeat(var(--tk-cols), 1fr);
+    grid-template-rows:repeat(var(--tk-rows), 1fr);
+    column-gap:var(--tk-gap-x); row-gap:var(--tk-gap-y);
     box-shadow: 0 1px 3px rgba(0,0,0,.15);
   }
+  .coupon-cell{
+    position:relative; overflow:hidden; border:1px dashed #9db3ab; border-radius:2mm; background:#ffffff;
+  }
   .coupon{
-    position:relative; display:flex; border:1px dashed #9db3ab; border-radius:2mm;
-    overflow:hidden; background:#ffffff; height:31mm;
+    position:absolute; top:0; left:0; width:142mm; height:31mm;
+    transform-origin:top left; transform:scale(var(--tk-scale-x), var(--tk-scale-y));
+    display:flex; flex-direction:row;
+    font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; color:#0f172a;
   }
   .wm{
     position:absolute; inset:0; background-repeat:no-repeat; background-position:center;
@@ -261,7 +294,6 @@
   @media print{
     .no-print{ display:none !important; }
     .print-only{ display:block; }
-    @page{ size:A4 landscape; margin:0; }
     html, body{ background:#fff; }
     .a4-sheet{ box-shadow:none; page-break-after:always; margin:0 auto; }
     .a4-sheet:last-child{ page-break-after:auto; }
@@ -335,6 +367,38 @@
         </section>
 
         <section class="field-group">
+          <h2>Formato de hoja</h2>
+          <div class="seg" role="group" aria-label="Orientación de la hoja">
+            <button type="button" id="orientLandscape" aria-pressed="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="1.5"/></svg>
+              Horizontal
+            </button>
+            <button type="button" id="orientPortrait" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="1.5"/></svg>
+              Vertical
+            </button>
+          </div>
+          <div class="row2">
+            <label for="gridCols"><span class="lbl">Cupones por fila (horiz.)</span>
+              <div class="stepper">
+                <button type="button" data-step="-1" data-target="gridCols">−</button>
+                <input type="number" id="gridCols" min="1" max="8" step="1">
+                <button type="button" data-step="1" data-target="gridCols">+</button>
+              </div>
+            </label>
+            <label for="gridRows"><span class="lbl">Cupones por columna (vert.)</span>
+              <div class="stepper">
+                <button type="button" data-step="-1" data-target="gridRows">−</button>
+                <input type="number" id="gridRows" min="1" max="14" step="1">
+                <button type="button" data-step="1" data-target="gridRows">+</button>
+              </div>
+            </label>
+          </div>
+          <p class="hint" id="gridInfo">12 cupones por hoja · cupón resultante <b>142 × 31 mm</b></p>
+          <p class="warn" id="gridWarn">La grilla es muy densa: el cupón queda chico y el diseño se estira para llenar el espacio. Probá con menos filas/columnas si buscás mejor legibilidad.</p>
+        </section>
+
+        <section class="field-group">
           <h2>Numeración</h2>
           <div class="row2">
             <label for="startNumber"><span class="lbl">Número inicial</span>
@@ -342,7 +406,7 @@
             <label for="totalCoupons"><span class="lbl">Cantidad de cupones</span>
               <input type="number" id="totalCoupons" min="1" max="5000" step="1"></label>
           </div>
-          <p class="hint">12 cupones por hoja A4 horizontal (6 filas × 2 columnas), listos para 1 corte vertical y 5 horizontales.</p>
+          <p class="hint">El cupón se agranda o achica en ancho y alto (de forma independiente) para ocupar exactamente la grilla que definas arriba, en cualquier hoja A4.</p>
         </section>
 
         <section class="field-group">
@@ -369,7 +433,7 @@
         <span class="label">Vista previa — hoja 1</span>
         <button type="button" class="cta" id="printBtn">🖨️ Generar PDF / Imprimir talonario</button>
       </div>
-      <p class="print-hint">En el diálogo de impresión elegí “Guardar como PDF”, papel A4 horizontal, márgenes “Ninguno” y activá “Gráficos de fondo” para que se vean los colores.</p>
+      <p class="print-hint" id="printHint">En el diálogo de impresión elegí "Guardar como PDF", papel A4 horizontal, márgenes "Ninguno" y activá "Gráficos de fondo" para que se vean los colores.</p>
       <div class="sheet-stage">
         <div id="previewOuter">
           <div class="a4-sheet" id="previewSheet"></div>
@@ -386,7 +450,10 @@
 (function(){
   "use strict";
   var MM_PX = 96/25.4;
-  var STORAGE_KEY = "imprenta_cupones_state_v1";
+  var STORAGE_KEY = "imprenta_cupones_state_v2";
+  var REF_W = 142; // mm — reference coupon design width
+  var REF_H = 31;  // mm — reference coupon design height
+  var PAGE_MARGIN = 6; // mm
 
   var defaults = {
     orgFull: "Asociación El Portal del Palmeral",
@@ -407,6 +474,9 @@
       {badge:"6-14", text:"Premios sorpresa"}
     ],
     stubFields: ["Nombre y apellido","Teléfono / WhatsApp","Email / dirección","Vendedor"],
+    orientation: "landscape",
+    cols: 2,
+    rows: 6,
     startNumber: 1,
     totalCoupons: 1000,
     watermark: null,
@@ -443,13 +513,22 @@
     $("drawDate").value = state.drawDate;
     $("place").value = state.place;
     $("price").value = state.price;
+    $("gridCols").value = state.cols;
+    $("gridRows").value = state.rows;
     $("startNumber").value = state.startNumber;
     $("totalCoupons").value = state.totalCoupons;
     $("watermarkOpacity").value = state.watermarkOpacity;
     $("watermarkOpacityOut").textContent = state.watermarkOpacity + "%";
+    updateOrientButtons();
     renderPrizeList();
     renderStubList();
     renderWatermarkRow();
+  }
+
+  function updateOrientButtons(){
+    var isLandscape = state.orientation === "landscape";
+    $("orientLandscape").setAttribute("aria-pressed", isLandscape ? "true" : "false");
+    $("orientPortrait").setAttribute("aria-pressed", isLandscape ? "false" : "true");
   }
 
   function renderPrizeList(){
@@ -512,6 +591,44 @@
 
   $("accentColor").addEventListener("input", function(){ state.accent = this.value; onStateChanged(); });
   $("ctaColor").addEventListener("input", function(){ state.cta = this.value; onStateChanged(); });
+
+  $("orientLandscape").addEventListener("click", function(){
+    state.orientation = "landscape";
+    updateOrientButtons();
+    onStateChanged();
+  });
+  $("orientPortrait").addEventListener("click", function(){
+    state.orientation = "portrait";
+    updateOrientButtons();
+    onStateChanged();
+  });
+
+  function readGridInput(id, min, max){
+    var v = parseInt($(id).value, 10);
+    if(isNaN(v)) v = min;
+    return Math.max(min, Math.min(max, v));
+  }
+  $("gridCols").addEventListener("input", function(){
+    state.cols = readGridInput("gridCols", 1, 8);
+    onStateChanged();
+  });
+  $("gridRows").addEventListener("input", function(){
+    state.rows = readGridInput("gridRows", 1, 14);
+    onStateChanged();
+  });
+  document.querySelectorAll(".stepper button[data-step]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var targetId = btn.getAttribute("data-target");
+      var delta = parseInt(btn.getAttribute("data-step"), 10);
+      var min = targetId === "gridCols" ? 1 : 1;
+      var max = targetId === "gridCols" ? 8 : 14;
+      var cur = parseInt($(targetId).value, 10) || min;
+      var next = Math.max(min, Math.min(max, cur + delta));
+      $(targetId).value = next;
+      if(targetId === "gridCols") state.cols = next; else state.rows = next;
+      onStateChanged();
+    });
+  });
 
   $("startNumber").addEventListener("input", function(){
     var v = parseInt(this.value, 10);
@@ -639,14 +756,76 @@
     debounceTimer = setTimeout(renderPreview, light ? 90 : 30);
   }
 
+  // ---------------- layout math (orientation + grid -> coupon scale) ----------------
+  function computeLayout(){
+    var landscape = state.orientation === "landscape";
+    var pageW = landscape ? 297 : 210;
+    var pageH = landscape ? 210 : 297;
+    var cols = state.cols, rows = state.rows;
+    var availW = pageW - PAGE_MARGIN*2;
+    var availH = pageH - PAGE_MARGIN*2;
+    var gapX = cols > 1 ? Math.min(3, (availW*0.3)/(cols-1)) : 0;
+    var gapY = rows > 1 ? Math.min(2, (availH*0.3)/(rows-1)) : 0;
+    var cellW = (availW - gapX*(cols-1)) / cols;
+    var cellH = (availH - gapY*(rows-1)) / rows;
+    cellW = Math.max(cellW, 4);
+    cellH = Math.max(cellH, 4);
+    var scaleX = cellW / REF_W;
+    var scaleY = cellH / REF_H;
+    return {
+      pageW: pageW, pageH: pageH, cols: cols, rows: rows,
+      gapX: gapX, gapY: gapY, cellW: cellW, cellH: cellH,
+      scaleX: scaleX, scaleY: scaleY,
+      perSheet: cols * rows,
+      dense: (scaleX < 0.4 || scaleY < 0.4)
+    };
+  }
+
+  function applyGlobalTokens(layout){
+    var root = document.documentElement.style;
+    root.setProperty("--tk-accent", state.accent);
+    root.setProperty("--tk-cta", state.cta);
+    root.setProperty("--tk-wm-opacity", (state.watermarkOpacity/100).toString());
+    root.setProperty("--tk-page-w", layout.pageW + "mm");
+    root.setProperty("--tk-page-h", layout.pageH + "mm");
+    root.setProperty("--tk-cols", layout.cols);
+    root.setProperty("--tk-rows", layout.rows);
+    root.setProperty("--tk-gap-x", layout.gapX + "mm");
+    root.setProperty("--tk-gap-y", layout.gapY + "mm");
+    root.setProperty("--tk-scale-x", layout.scaleX.toFixed(4));
+    root.setProperty("--tk-scale-y", layout.scaleY.toFixed(4));
+  }
+
+  function updatePageSizeStyle(){
+    var landscape = state.orientation === "landscape";
+    var css = "@page{ size:A4 " + (landscape ? "landscape" : "portrait") + "; margin:0; }";
+    var el = document.getElementById("pageSizeStyle");
+    if(!el){
+      el = document.createElement("style");
+      el.id = "pageSizeStyle";
+      document.head.appendChild(el);
+    }
+    el.textContent = css;
+  }
+
   function updateStats(){
+    var layout = computeLayout();
     var total = state.totalCoupons;
-    var sheets = Math.ceil(total / 12);
+    var sheets = Math.ceil(total / layout.perSheet);
     var last = state.startNumber + total - 1;
     $("stats").innerHTML =
       '<div class="stat"><b class="num">'+total+'</b><span>Cupones</span></div>' +
       '<div class="stat"><b class="num">'+sheets+'</b><span>Hojas A4</span></div>' +
+      '<div class="stat"><b class="num">'+layout.perSheet+'</b><span>Por hoja</span></div>' +
       '<div class="stat"><b class="num">'+pad4(state.startNumber)+'–'+pad4(last)+'</b><span>Numeración</span></div>';
+
+    $("gridInfo").innerHTML = layout.perSheet + ' cupones por hoja · cupón resultante <b>' +
+      layout.cellW.toFixed(0) + ' × ' + layout.cellH.toFixed(0) + ' mm</b>';
+    $("gridWarn").classList.toggle("show", layout.dense);
+
+    var landscape = state.orientation === "landscape";
+    $("printHint").textContent = 'En el diálogo de impresión elegí "Guardar como PDF", papel A4 ' +
+      (landscape ? "horizontal" : "vertical") + ', márgenes "Ninguno" y activá "Gráficos de fondo" para que se vean los colores.';
   }
 
   function pad4(n){
@@ -709,11 +888,14 @@
     );
   }
 
-  function makeCouponTemplateNode(){
-    var el = document.createElement("div");
-    el.className = "coupon";
-    el.innerHTML = couponInnerHTML();
-    return el;
+  function makeCellTemplateNode(){
+    var cell = document.createElement("div");
+    cell.className = "coupon-cell";
+    var inner = document.createElement("div");
+    inner.className = "coupon";
+    inner.innerHTML = couponInnerHTML();
+    cell.appendChild(inner);
+    return cell;
   }
 
   function fillNumber(node, n){
@@ -723,33 +905,31 @@
     if(nums[1]) nums[1].textContent = label;
   }
 
-  function applyColorTokens(){
-    document.documentElement.style.setProperty("--tk-accent", state.accent);
-    document.documentElement.style.setProperty("--tk-cta", state.cta);
-    document.documentElement.style.setProperty("--tk-wm-opacity", (state.watermarkOpacity/100).toString());
-  }
-
   function renderPreview(){
-    applyColorTokens();
+    var layout = computeLayout();
+    applyGlobalTokens(layout);
+    updatePageSizeStyle();
     var sheet = $("previewSheet");
     sheet.innerHTML = "";
-    var tpl = makeCouponTemplateNode();
-    var count = Math.min(12, state.totalCoupons);
+    var tpl = makeCellTemplateNode();
+    var count = Math.min(layout.perSheet, state.totalCoupons);
     for(var i=0;i<count;i++){
       var node = tpl.cloneNode(true);
       fillNumber(node, state.startNumber + i);
       sheet.appendChild(node);
     }
-    fitPreview();
+    fitPreview(layout);
   }
 
   function buildPrintArea(){
-    applyColorTokens();
+    var layout = computeLayout();
+    applyGlobalTokens(layout);
+    updatePageSizeStyle();
     var area = $("printArea");
     area.innerHTML = "";
-    var tpl = makeCouponTemplateNode();
+    var tpl = makeCellTemplateNode();
     var total = state.totalCoupons;
-    var perSheet = 12;
+    var perSheet = layout.perSheet;
     var sheets = Math.ceil(total / perSheet);
     var frag = document.createDocumentFragment();
     for(var s=0; s<sheets; s++){
@@ -767,13 +947,13 @@
     area.appendChild(frag);
   }
 
-  function fitPreview(){
+  function fitPreview(layout){
     var stage = document.querySelector(".sheet-stage");
     var outer = $("previewOuter");
     var sheet = $("previewSheet");
     var available = stage.clientWidth - 16;
-    var naturalW = 297 * MM_PX;
-    var naturalH = 210 * MM_PX;
+    var naturalW = layout.pageW * MM_PX;
+    var naturalH = layout.pageH * MM_PX;
     var scale = Math.min(1, available / naturalW);
     sheet.style.transform = "scale(" + scale + ")";
     outer.style.width = (naturalW * scale) + "px";
@@ -782,7 +962,7 @@
 
   window.addEventListener("resize", function(){
     if(debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(fitPreview, 100);
+    debounceTimer = setTimeout(function(){ fitPreview(computeLayout()); }, 100);
   });
 
   // ---------------- init ----------------
