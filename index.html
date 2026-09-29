@@ -139,6 +139,7 @@
   .hint b{ color:var(--ink); font-family:'IBM Plex Mono',monospace; font-weight:600; }
   .warn{ font-size:11.5px; color:var(--cta); margin:6px 0 0; display:none; }
   .warn.show{ display:block; }
+  #saveIndicator{ color:var(--accent); font-weight:600; }
 
   select{
     width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px;
@@ -249,16 +250,14 @@
     font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; color:#0f172a;
   }
   /* background image layer: shared by per-card watermark and full-sheet mode.
-     the img fills its clip box (same size, so % translate == % of container)
-     then user-controlled translate/scale pan & zoom it; overflow:hidden clips
-     anything that goes past the frame. */
+     background-size/position (computed in JS, in %) fill the box completely
+     and let it pan/zoom — background-image always prints reliably, unlike
+     an <img> with object-fit+transform which some browsers mishandle on
+     the printed/PDF page. */
   .wm-clip{
-    position:absolute; inset:0; overflow:hidden; opacity:var(--tk-wm-opacity); pointer-events:none; z-index:0;
+    position:absolute; inset:0; opacity:var(--tk-wm-opacity); pointer-events:none; z-index:0;
   }
   .wm-sheet{ z-index:0; }
-  .wm-img{
-    position:absolute; top:50%; left:50%; width:100%; height:100%; object-fit:cover;
-  }
   .stub, .main{ position:relative; z-index:1; }
   .stub{
     width:30%; flex:0 0 30%; background:color-mix(in srgb, var(--tk-accent) 9%, white);
@@ -445,11 +444,11 @@
           <label for="projectNameInput"><span class="lbl">Nombre del proyecto</span>
             <input type="text" id="projectNameInput" maxlength="60"></label>
           <div class="row2">
-            <button type="button" class="ghost" id="newProjectBtn">+ Nuevo</button>
-            <button type="button" class="ghost" id="duplicateProjectBtn">⧉ Duplicar</button>
+            <button type="button" class="ghost" id="newProjectBtn">+ Nuevo (vacío)</button>
+            <button type="button" class="ghost" id="duplicateProjectBtn">⧉ Guardar copia de este</button>
           </div>
           <button type="button" class="ghost" id="deleteProjectBtn">🗑 Eliminar este proyecto</button>
-          <p class="hint">Cada proyecto guarda su propio diseño, premios y numeración por separado.</p>
+          <p class="hint" id="saveIndicator">✓ Los cambios de este proyecto se guardan solos, no hace falta ningún botón.</p>
         </section>
 
         <section class="field-group">
@@ -555,6 +554,12 @@
           </div>
           <p class="hint" id="gridInfo">12 cupones por hoja · cupón resultante <b>142 × 31 mm</b></p>
           <p class="warn" id="gridWarn">La grilla es muy densa: el cartón queda chico (mantiene su proporción, sin deformarse). Probá con menos filas/columnas si buscás mejor legibilidad.</p>
+          <label><span class="lbl">Orden de numeración</span></label>
+          <div class="seg" role="group" aria-label="Orden de numeración">
+            <button type="button" id="flowRow" aria-pressed="true">Por fila</button>
+            <button type="button" id="flowColumn" aria-pressed="false">Por columna</button>
+          </div>
+          <p class="hint">Por fila: 1, 2, 3… avanza a lo ancho. Por columna: 1, 2, 3… avanza hacia abajo antes de pasar a la siguiente columna (útil para cortar en tiras verticales).</p>
         </section>
 
         <section class="field-group">
@@ -612,15 +617,15 @@
           </div>
           <label for="watermarkX"><span class="lbl">Posición horizontal</span></label>
           <div class="range-row">
-            <input type="range" id="watermarkX" min="-100" max="100" step="1" value="0">
+            <input type="range" id="watermarkX" min="-50" max="50" step="1" value="0">
             <output id="watermarkXOut">0%</output>
           </div>
           <label for="watermarkY"><span class="lbl">Posición vertical</span></label>
           <div class="range-row">
-            <input type="range" id="watermarkY" min="-100" max="100" step="1" value="0">
+            <input type="range" id="watermarkY" min="-50" max="50" step="1" value="0">
             <output id="watermarkYOut">0%</output>
           </div>
-          <p class="hint">Ya llena el cuadro a 100%, sin espacios en blanco. Si al mover aparece un borde vacío, subí el zoom para tener más margen de recorrido.</p>
+          <p class="hint">Llena el cuadro completo en todo el recorrido, nunca queda en blanco. Si un eje no se mueve, es porque esa imagen ya está ajustada al máximo en ese sentido: subí el zoom para poder recorrerlo también.</p>
         </section>
 
         <section class="field-group">
@@ -700,6 +705,9 @@
     watermarkScale: 100,
     watermarkX: 0,
     watermarkY: 0,
+    watermarkNaturalW: 0,
+    watermarkNaturalH: 0,
+    numberFlow: "row", // "row" (fila por fila) | "column" (columna por columna)
     prizeFontScale: 1,
     numberBoxScale: 1,
     numberFontScale: 1,
@@ -766,8 +774,15 @@
     renderPreview();
   }
 
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
+
   function saveState(){
     try{ localStorage.setItem(PROJECTS_KEY, JSON.stringify(projectsStore)); }catch(e){}
+    var el = $("saveIndicator");
+    if(el){
+      var t = new Date();
+      el.textContent = "✓ Guardado automáticamente · " + pad2(t.getHours()) + ":" + pad2(t.getMinutes()) + ":" + pad2(t.getSeconds());
+    }
   }
 
   // ---------------- form <-> state wiring ----------------
@@ -811,6 +826,7 @@
     updateOrientButtons();
     updateTypeButtons();
     updateWatermarkModeButtons();
+    updateFlowButtons();
     renderPrizeList();
     renderStubList();
     renderWatermarkRow();
@@ -841,6 +857,12 @@
     var isLandscape = state.orientation === "landscape";
     $("orientLandscape").setAttribute("aria-pressed", isLandscape ? "true" : "false");
     $("orientPortrait").setAttribute("aria-pressed", isLandscape ? "false" : "true");
+  }
+
+  function updateFlowButtons(){
+    var isColumn = state.numberFlow === "column";
+    $("flowRow").setAttribute("aria-pressed", isColumn ? "false" : "true");
+    $("flowColumn").setAttribute("aria-pressed", isColumn ? "true" : "false");
   }
 
   function updateTypeButtons(){
@@ -964,6 +986,17 @@
   $("orientPortrait").addEventListener("click", function(){
     state.orientation = "portrait";
     updateOrientButtons();
+    onStateChanged();
+  });
+
+  $("flowRow").addEventListener("click", function(){
+    state.numberFlow = "row";
+    updateFlowButtons();
+    onStateChanged();
+  });
+  $("flowColumn").addEventListener("click", function(){
+    state.numberFlow = "column";
+    updateFlowButtons();
     onStateChanged();
   });
 
@@ -1199,6 +1232,8 @@
         var ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
         state.watermark = canvas.toDataURL("image/jpeg", 0.88);
+        state.watermarkNaturalW = w;
+        state.watermarkNaturalH = h;
         renderWatermarkRow();
         onStateChanged();
       };
@@ -1208,10 +1243,29 @@
   });
   $("removeWatermark").addEventListener("click", function(){
     state.watermark = null;
+    state.watermarkNaturalW = 0;
+    state.watermarkNaturalH = 0;
     $("watermarkFile").value = "";
     renderWatermarkRow();
     onStateChanged();
   });
+
+  // legacy projects (or imports from an earlier version) may have a
+  // watermark dataURL but no recorded natural size — probe it once so the
+  // background-size math has a real aspect ratio to work with.
+  function ensureWatermarkDims(){
+    if(!state.watermark || state.watermarkNaturalW) return;
+    var probe = new Image();
+    probe.onload = function(){
+      if(state.watermark){
+        state.watermarkNaturalW = probe.naturalWidth || 1;
+        state.watermarkNaturalH = probe.naturalHeight || 1;
+        saveState();
+        renderPreview();
+      }
+    };
+    probe.src = state.watermark;
+  }
 
   $("wmModeCard").addEventListener("click", function(){
     state.watermarkMode = "card";
@@ -1349,6 +1403,12 @@
     debounceTimer = setTimeout(renderPreview, light ? 90 : 30);
   }
 
+  function getCardRef(){
+    if(state.cardType === "carton") return { w: CARTON_REF_W, h: CARTON_REF_H };
+    if(state.cardType === "illustrated") return { w: ILLUS_REF_W, h: ILLUS_REF_H };
+    return { w: REF_W, h: REF_H };
+  }
+
   // ---------------- layout math (orientation + grid -> coupon scale) ----------------
   function computeLayout(){
     var landscape = state.orientation === "landscape";
@@ -1363,13 +1423,11 @@
     var cellH = (availH - gapY*(rows-1)) / rows;
     cellW = Math.max(cellW, 4);
     cellH = Math.max(cellH, 4);
-    var refW = REF_W, refH = REF_H;
-    if(state.cardType === "carton"){ refW = CARTON_REF_W; refH = CARTON_REF_H; }
-    else if(state.cardType === "illustrated"){ refW = ILLUS_REF_W; refH = ILLUS_REF_H; }
+    var ref = getCardRef();
     // uniform scale (never independent X/Y) so the design and its fonts
     // never get stretched/squashed out of proportion — it just leaves
     // spare margin in the cell on the axis that doesn't limit it.
-    var scale = Math.min(cellW / refW, cellH / refH);
+    var scale = Math.min(cellW / ref.w, cellH / ref.h);
     return {
       pageW: pageW, pageH: pageH, cols: cols, rows: rows,
       gapX: gapX, gapY: gapY, cellW: cellW, cellH: cellH,
@@ -1441,22 +1499,45 @@
   }
 
   // ---------------- background image (watermark) rendering ----------------
-  function watermarkTransform(){
-    return "translate(calc(-50% + " + state.watermarkX + "%), calc(-50% + " + state.watermarkY + "%)) scale(" + (state.watermarkScale/100) + ")";
+  // Uses background-image/background-size/background-position (computed by
+  // hand in JS) instead of an <img> with object-fit+transform: the latter is
+  // unreliable in Chrome's print/PDF pipeline (renders fine on screen, wrong
+  // or missing on the printed page). background-image has always printed
+  // correctly, and background-position's percentage math (0%..100% = fully
+  // panned to one edge or the other of the zoomed image) fills the frame
+  // completely at any pan value — no dead zone.
+  function watermarkBgStyle(containerW, containerH){
+    var imgW = state.watermarkNaturalW || 1;
+    var imgH = state.watermarkNaturalH || 1;
+    var contA = containerW / containerH;
+    var imgA = imgW / imgH;
+    var wPct, hPct;
+    if(imgA > contA){ hPct = 100; wPct = (imgA / contA) * 100; }
+    else { wPct = 100; hPct = (contA / imgA) * 100; }
+    var z = (state.watermarkScale || 100) / 100;
+    wPct *= z; hPct *= z;
+    var posX = 50 + (state.watermarkX || 0);
+    var posY = 50 + (state.watermarkY || 0);
+    return "background-image:url('" + state.watermark + "');" +
+      "background-size:" + wPct.toFixed(2) + "% " + hPct.toFixed(2) + "%;" +
+      "background-position:" + posX.toFixed(2) + "% " + posY.toFixed(2) + "%;" +
+      "background-repeat:no-repeat;";
   }
 
   // per-card watermark: rendered inside each cartón/cupón, hidden when the
   // image is set to "hoja completa" mode (the sheet-level layer covers it).
   function watermarkHtml(){
     if(!state.watermark || state.watermarkMode === "sheet") return "";
-    return '<div class="wm-clip"><img class="wm-img" src="'+state.watermark+'" style="transform:'+watermarkTransform()+'"></div>';
+    var ref = getCardRef();
+    return '<div class="wm-clip" style="'+watermarkBgStyle(ref.w, ref.h)+'"></div>';
   }
 
   // sheet-level watermark: one image behind the whole A4 page, independent
   // of the grid of cartones tiled on top of it.
   function sheetWatermarkHtml(){
     if(!state.watermark || state.watermarkMode !== "sheet") return "";
-    return '<div class="wm-clip wm-sheet"><img class="wm-img" src="'+state.watermark+'" style="transform:'+watermarkTransform()+'"></div>';
+    var layout = computeLayout();
+    return '<div class="wm-clip wm-sheet" style="'+watermarkBgStyle(layout.pageW, layout.pageH)+'"></div>';
   }
 
   // ---------------- coupon rendering ----------------
@@ -1665,6 +1746,22 @@
     }
   }
 
+  // maps a cell's visual position (i = row-major index within one sheet, as
+  // laid out by the CSS grid) to the local numbering offset it should get.
+  // "row" keeps them the same (numbers run left-to-right, top-to-bottom).
+  // "column" numbers top-to-bottom within a column before moving to the
+  // next one, useful when the sheet will be cut into vertical strips.
+  // Only remaps on a FULL sheet: on a partial last sheet the column-major
+  // permutation could point some cells past the last real number, so that
+  // page falls back to row order rather than risk skipping/duplicating one.
+  function localCellOrder(i, cellsOnSheet, layout){
+    if(state.numberFlow !== "column" || cellsOnSheet !== layout.perSheet) return i;
+    var cols = layout.cols, rows = layout.rows;
+    var r = Math.floor(i / cols);
+    var c = i % cols;
+    return c * rows + r;
+  }
+
   function fillCellUnit(node, unitIndex){
     var perCell = unitsPerCell();
     var startN = state.startNumber + unitIndex * perCell;
@@ -1677,6 +1774,7 @@
   }
 
   function renderPreview(){
+    ensureWatermarkDims();
     var layout = computeLayout();
     applyGlobalTokens(layout);
     updatePageSizeStyle();
@@ -1688,7 +1786,7 @@
     var count = Math.min(layout.perSheet, units);
     for(var i=0;i<count;i++){
       var node = tpl.cloneNode(true);
-      fillCellUnit(node, i);
+      fillCellUnit(node, localCellOrder(i, count, layout));
       sheet.appendChild(node);
     }
     fitPreview(layout);
@@ -1713,7 +1811,7 @@
       var countOnSheet = Math.min(perSheet, units - s*perSheet);
       for(var i=0;i<countOnSheet;i++){
         var node = tpl.cloneNode(true);
-        fillCellUnit(node, s*perSheet + i);
+        fillCellUnit(node, s*perSheet + localCellOrder(i, countOnSheet, layout));
         sheetEl.appendChild(node);
       }
       frag.appendChild(sheetEl);
