@@ -166,6 +166,16 @@
     font-size:15px; line-height:1;
   }
   .icon-btn:hover{ color:var(--cta); border-color:var(--cta); }
+  .icon-btn:disabled{ opacity:.35; cursor:default; }
+  .icon-btn:disabled:hover{ color:var(--muted); border-color:var(--line); }
+
+  .reorder-btns{ flex:0 0 auto; display:flex; flex-direction:column; gap:2px; }
+  .reorder-btns button{
+    width:20px; height:13px; padding:0; line-height:1; font-size:9px; border-radius:3px;
+    border:1px solid var(--line); background:var(--surface-2); color:var(--muted); cursor:pointer;
+  }
+  .reorder-btns button:hover:not(:disabled){ color:var(--cta); border-color:var(--cta); }
+  .reorder-btns button:disabled{ opacity:.3; cursor:default; }
 
   .stepper{ display:flex; align-items:stretch; border:1px solid var(--line); border-radius:7px; overflow:hidden; background:var(--surface-2); }
   .stepper button{
@@ -459,8 +469,13 @@
           <h2>Premios</h2>
           <div id="prizeList"></div>
           <button type="button" class="add-btn" id="addPrize">+ Agregar premio</button>
-          <p class="hint">El texto identificador (badge) puede ser un número o un rango, ej. "6-14".</p>
+          <p class="hint">El texto identificador (badge) puede ser un número o un rango, ej. "6-14". Usá las flechas para reordenarlos.</p>
           <p class="warn" id="prizeWarn">Con muchos premios el texto se reduce para que entren sin superponerse. Se recomiendan hasta 8.</p>
+          <label for="prizeFontScale"><span class="lbl">Tamaño de fuente de los premios</span></label>
+          <div class="range-row">
+            <input type="range" id="prizeFontScale" min="50" max="200" step="5" value="100">
+            <output id="prizeFontScaleOut">100%</output>
+          </div>
         </section>
 
         <section class="field-group" id="stubSection">
@@ -499,7 +514,7 @@
             </label>
           </div>
           <p class="hint" id="gridInfo">12 cupones por hoja · cupón resultante <b>142 × 31 mm</b></p>
-          <p class="warn" id="gridWarn">La grilla es muy densa: el cupón queda chico y el diseño se estira para llenar el espacio. Probá con menos filas/columnas si buscás mejor legibilidad.</p>
+          <p class="warn" id="gridWarn">La grilla es muy densa: el cartón queda chico (mantiene su proporción, sin deformarse). Probá con menos filas/columnas si buscás mejor legibilidad.</p>
         </section>
 
         <section class="field-group">
@@ -518,8 +533,18 @@
                 <button type="button" data-step="1" data-target="numbersPerCard">+</button>
               </div>
             </label>
+            <label for="numberBoxScale"><span class="lbl">Tamaño de las casillas de número</span></label>
+            <div class="range-row">
+              <input type="range" id="numberBoxScale" min="50" max="200" step="5" value="100">
+              <output id="numberBoxScaleOut">100%</output>
+            </div>
+            <label for="numberFontScale"><span class="lbl">Tamaño de fuente de los números</span></label>
+            <div class="range-row">
+              <input type="range" id="numberFontScale" min="50" max="200" step="5" value="100">
+              <output id="numberFontScaleOut">100%</output>
+            </div>
           </div>
-          <p class="hint">El cupón se agranda o achica en ancho y alto (de forma independiente) para ocupar exactamente la grilla que definas arriba, en cualquier hoja A4.</p>
+          <p class="hint">El cartón se agranda o achica manteniendo siempre su proporción original (sin deformarse) para entrar en la grilla que definas arriba, en cualquier hoja A4.</p>
         </section>
 
         <section class="field-group">
@@ -607,7 +632,10 @@
     startNumber: 1,
     totalCoupons: 1000,
     watermark: null,
-    watermarkOpacity: 10
+    watermarkOpacity: 10,
+    prizeFontScale: 1,
+    numberBoxScale: 1,
+    numberFontScale: 1
   };
 
   var state = null;
@@ -647,6 +675,12 @@
     $("numbersPerCard").value = state.numbersPerCard;
     $("watermarkOpacity").value = state.watermarkOpacity;
     $("watermarkOpacityOut").textContent = state.watermarkOpacity + "%";
+    $("prizeFontScale").value = Math.round(state.prizeFontScale * 100);
+    $("prizeFontScaleOut").textContent = Math.round(state.prizeFontScale * 100) + "%";
+    $("numberBoxScale").value = Math.round(state.numberBoxScale * 100);
+    $("numberBoxScaleOut").textContent = Math.round(state.numberBoxScale * 100) + "%";
+    $("numberFontScale").value = Math.round(state.numberFontScale * 100);
+    $("numberFontScaleOut").textContent = Math.round(state.numberFontScale * 100) + "%";
     updateOrientButtons();
     updateTypeButtons();
     renderPrizeList();
@@ -680,6 +714,10 @@
       var row = document.createElement("div");
       row.className = "list-row";
       row.innerHTML =
+        '<div class="reorder-btns">' +
+          '<button type="button" data-role="prize-up" data-i="'+i+'" title="Subir"'+(i===0?' disabled':'')+'>▲</button>' +
+          '<button type="button" data-role="prize-down" data-i="'+i+'" title="Bajar"'+(i===state.prizes.length-1?' disabled':'')+'>▼</button>' +
+        '</div>' +
         '<label class="prize-photo-btn" title="Foto del premio">' +
           (p.img ? '<img src="'+p.img+'">' : '🖼') +
           '<input type="file" accept="image/*" class="prize-photo-file" data-i="'+i+'" style="display:none">' +
@@ -839,6 +877,30 @@
     onStateChanged(true);
   });
   $("prizeList").addEventListener("click", function(e){
+    var upBtn = e.target.closest('[data-role="prize-up"]');
+    if(upBtn){
+      var ui = parseInt(upBtn.getAttribute("data-i"), 10);
+      if(ui > 0){
+        var tmpUp = state.prizes[ui-1];
+        state.prizes[ui-1] = state.prizes[ui];
+        state.prizes[ui] = tmpUp;
+        renderPrizeList();
+        onStateChanged();
+      }
+      return;
+    }
+    var downBtn = e.target.closest('[data-role="prize-down"]');
+    if(downBtn){
+      var di = parseInt(downBtn.getAttribute("data-i"), 10);
+      if(di < state.prizes.length - 1){
+        var tmpDown = state.prizes[di+1];
+        state.prizes[di+1] = state.prizes[di];
+        state.prizes[di] = tmpDown;
+        renderPrizeList();
+        onStateChanged();
+      }
+      return;
+    }
     var delPhoto = e.target.closest('[data-role="del-prize-photo"]');
     if(delPhoto){
       var pi = parseInt(delPhoto.getAttribute("data-i"), 10);
@@ -885,6 +947,22 @@
     state.prizes.push({badge:String(state.prizes.length+1), text:"Nuevo premio", img:null});
     renderPrizeList();
     onStateChanged();
+  });
+
+  $("prizeFontScale").addEventListener("input", function(){
+    state.prizeFontScale = parseInt(this.value, 10) / 100;
+    $("prizeFontScaleOut").textContent = this.value + "%";
+    onStateChanged(true);
+  });
+  $("numberBoxScale").addEventListener("input", function(){
+    state.numberBoxScale = parseInt(this.value, 10) / 100;
+    $("numberBoxScaleOut").textContent = this.value + "%";
+    onStateChanged(true);
+  });
+  $("numberFontScale").addEventListener("input", function(){
+    state.numberFontScale = parseInt(this.value, 10) / 100;
+    $("numberFontScaleOut").textContent = this.value + "%";
+    onStateChanged(true);
   });
 
   $("stubList").addEventListener("input", function(e){
@@ -1033,14 +1111,16 @@
     var refW = REF_W, refH = REF_H;
     if(state.cardType === "carton"){ refW = CARTON_REF_W; refH = CARTON_REF_H; }
     else if(state.cardType === "illustrated"){ refW = ILLUS_REF_W; refH = ILLUS_REF_H; }
-    var scaleX = cellW / refW;
-    var scaleY = cellH / refH;
+    // uniform scale (never independent X/Y) so the design and its fonts
+    // never get stretched/squashed out of proportion — it just leaves
+    // spare margin in the cell on the axis that doesn't limit it.
+    var scale = Math.min(cellW / refW, cellH / refH);
     return {
       pageW: pageW, pageH: pageH, cols: cols, rows: rows,
       gapX: gapX, gapY: gapY, cellW: cellW, cellH: cellH,
-      scaleX: scaleX, scaleY: scaleY,
+      scaleX: scale, scaleY: scale,
       perSheet: cols * rows,
-      dense: (scaleX < 0.4 || scaleY < 0.4)
+      dense: (scale < 0.4)
     };
   }
 
@@ -1108,8 +1188,9 @@
   // ---------------- coupon rendering ----------------
   function prizeFontSizes(count){
     var extra = Math.max(0, count - 6);
+    var scale = state.prizeFontScale || 1;
     return {
-      text: Math.max(3.6, 5 - extra*0.22).toFixed(2) + "pt",
+      text: (Math.max(3.6, 5 - extra*0.22) * scale).toFixed(2) + "pt",
       badge: Math.max(2.8, 3.3 - extra*0.12).toFixed(2) + "pt",
       badgeSize: Math.max(2.9, 3.6 - extra*0.08).toFixed(2) + "mm"
     };
@@ -1160,16 +1241,19 @@
 
   function cardNumberSizes(count){
     var extra = Math.max(0, count - 5);
+    var boxScale = state.numberBoxScale || 1;
+    var fontScale = state.numberFontScale || 1;
     return {
-      font: Math.max(3.6, 5.6 - extra*0.34).toFixed(2) + "pt",
-      pad: Math.max(0.22, 0.6 - extra*0.045).toFixed(2) + "mm",
+      font: (Math.max(3.6, 5.6 - extra*0.34) * fontScale).toFixed(2) + "pt",
+      pad: (Math.max(0.22, 0.6 - extra*0.045) * boxScale).toFixed(2) + "mm",
       gap: Math.max(0.3, 0.8 - extra*0.08).toFixed(2) + "mm"
     };
   }
 
   function cartonInnerHTML(){
+    var prizeFontSize = (4.4 * (state.prizeFontScale || 1)).toFixed(2) + "pt";
     var prizesHtml = state.prizes.map(function(p){
-      return '<li>'+escText(p.text)+'</li>';
+      return '<li style="font-size:'+prizeFontSize+'">'+escText(p.text)+'</li>';
     }).join("");
 
     var priceHtml = state.price ? escText(state.price) : "$ ______";
@@ -1207,21 +1291,24 @@
 
   function illusNumberSizes(count){
     var extra = Math.max(0, count - 20);
+    var boxScale = state.numberBoxScale || 1;
+    var fontScale = state.numberFontScale || 1;
     return {
-      font: Math.max(5, 8 - extra*0.15).toFixed(2) + "pt",
-      pad: Math.max(0.6, 1.2 - extra*0.03).toFixed(2) + "mm"
+      font: (Math.max(5, 8 - extra*0.15) * fontScale).toFixed(2) + "pt",
+      pad: (Math.max(0.6, 1.2 - extra*0.03) * boxScale).toFixed(2) + "mm"
     };
   }
 
   function illusInnerHTML(){
     var priceHtml = state.price ? escText(state.price) : "$ ______";
+    var prizeTextFont = (5.2 * (state.prizeFontScale || 1)).toFixed(2) + "pt";
 
     var prizesHtml = state.prizes.map(function(p, i){
       var badgeColor = (i % 2 === 0) ? "var(--tk-accent)" : "var(--tk-cta)";
       var photoHtml = p.img ? '<span class="illus-prize-photo" style="background-image:url(\''+p.img+'\')"></span>' : "";
       return '<div class="illus-prize">' +
         '<span class="illus-prize-badge" style="background:'+badgeColor+'">'+escText(p.badge)+'</span>' +
-        '<span class="illus-prize-text">'+escText(p.text)+'</span>' +
+        '<span class="illus-prize-text" style="font-size:'+prizeTextFont+'">'+escText(p.text)+'</span>' +
         photoHtml +
       '</div>';
     }).join("");
