@@ -289,6 +289,33 @@
   .footer-meta b{ color:#0f172a; }
   .price-tag{ flex:none; background:var(--tk-cta); color:#fff; font-weight:700; font-size:5.4pt; padding:.9mm 2mm; border-radius:1mm; white-space:nowrap; }
 
+  /* ================= CARTON DESIGN (multi-number card, shared: preview + print) ================= */
+  .carton-card{
+    position:absolute; top:0; left:0; width:96mm; height:53mm;
+    transform-origin:top left; transform:scale(var(--tk-scale-x), var(--tk-scale-y));
+    display:flex; flex-direction:column; justify-content:space-between;
+    font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; color:#0f172a;
+    padding:2.4mm 3mm;
+  }
+  .carton-header{ position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center; gap:2mm; border-bottom:.6pt solid color-mix(in srgb, var(--tk-accent) 30%, white); padding-bottom:1mm; }
+  .carton-title-wrap{ min-width:0; }
+  .carton-title{ font-size:8.5pt; font-weight:800; color:color-mix(in srgb, var(--tk-accent) 80%, black 20%); text-transform:uppercase; margin:0; line-height:1.1; }
+  .carton-subtitle{ font-size:5.4pt; font-weight:700; color:color-mix(in srgb, var(--tk-accent) 65%, black 20%); margin-top:.3mm; }
+  .carton-price{ flex:none; background:var(--tk-cta); color:#fff; font-weight:700; font-size:6pt; padding:.9mm 2.2mm; border-radius:3mm; white-space:nowrap; }
+  .carton-content{ position:relative; z-index:1; display:flex; justify-content:space-between; gap:2mm; margin:1.4mm 0; flex:1; min-height:0; }
+  .carton-prizes{ width:58%; min-width:0; }
+  .carton-prizes-title{ font-size:5pt; font-weight:700; color:color-mix(in srgb, var(--tk-accent) 80%, black 20%); text-transform:uppercase; margin-bottom:.6mm; }
+  .carton-prizes-list{ font-size:4.4pt; line-height:1.25; color:#1e293b; margin:0; padding-left:3mm; }
+  .carton-numbers{ width:38%; flex:none; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:.8mm; }
+  .carton-numbers-title{ font-size:4.6pt; font-weight:700; color:color-mix(in srgb, var(--tk-accent) 80%, black 20%); text-transform:uppercase; margin-bottom:.4mm; }
+  .num-box{ width:100%; box-sizing:border-box; border:.6pt solid var(--tk-accent); background:color-mix(in srgb, var(--tk-accent) 6%, white); text-align:center; font-size:5.6pt; font-weight:700; color:#0f172a; padding:.6mm 0; border-radius:1mm; }
+  .carton-footer{ position:relative; z-index:1; text-align:center; background:color-mix(in srgb, var(--tk-accent) 8%, white); border-radius:1.4mm; padding:.8mm; font-size:4.4pt; font-weight:700; color:color-mix(in srgb, var(--tk-cta) 85%, black 10%); }
+
+  /* type-specific field visibility, driven by #couponForm[data-card-type] */
+  #couponForm[data-card-type="carton"] #stubSection{ display:none; }
+  #couponForm[data-card-type="coupon"] #numbersPerCardField{ display:none; }
+  #couponForm[data-card-type="carton"] .badge-input{ display:none; }
+
   /* ---------------- print ---------------- */
   .print-only{ display:none; }
   @media print{
@@ -318,6 +345,15 @@
   <div class="workbench">
     <aside class="panel controls" aria-label="Configuración del cupón">
       <form id="couponForm" autocomplete="off">
+
+        <section class="field-group">
+          <h2>Tipo de cartón</h2>
+          <div class="seg" role="group" aria-label="Tipo de cartón">
+            <button type="button" id="typeCoupon" aria-pressed="true">Cupón con talón</button>
+            <button type="button" id="typeCarton" aria-pressed="false">Cartón multi-número</button>
+          </div>
+          <p class="hint">El cartón multi-número muestra varios números para elegir por cartón, sin talón de control separado.</p>
+        </section>
 
         <section class="field-group">
           <h2>Identidad</h2>
@@ -359,7 +395,7 @@
           <p class="warn" id="prizeWarn">Con muchos premios el texto se reduce para que entren sin superponerse. Se recomiendan hasta 8.</p>
         </section>
 
-        <section class="field-group">
+        <section class="field-group" id="stubSection">
           <h2>Campos del talón de control</h2>
           <div id="stubList"></div>
           <button type="button" class="add-btn" id="addStubField">+ Agregar campo</button>
@@ -405,6 +441,15 @@
               <input type="number" id="startNumber" min="0" max="999999" step="1"></label>
             <label for="totalCoupons"><span class="lbl">Cantidad de cupones</span>
               <input type="number" id="totalCoupons" min="1" max="5000" step="1"></label>
+          </div>
+          <div id="numbersPerCardField">
+            <label for="numbersPerCard"><span class="lbl">Números por cartón</span>
+              <div class="stepper">
+                <button type="button" data-step="-1" data-target="numbersPerCard">−</button>
+                <input type="number" id="numbersPerCard" min="1" max="12" step="1">
+                <button type="button" data-step="1" data-target="numbersPerCard">+</button>
+              </div>
+            </label>
           </div>
           <p class="hint">El cupón se agranda o achica en ancho y alto (de forma independiente) para ocupar exactamente la grilla que definas arriba, en cualquier hoja A4.</p>
         </section>
@@ -453,9 +498,13 @@
   var STORAGE_KEY = "imprenta_cupones_state_v2";
   var REF_W = 142; // mm — reference coupon design width
   var REF_H = 31;  // mm — reference coupon design height
+  var CARTON_REF_W = 96; // mm — reference carton design width
+  var CARTON_REF_H = 53; // mm — reference carton design height
   var PAGE_MARGIN = 6; // mm
 
   var defaults = {
+    cardType: "coupon", // "coupon" (talón) | "carton" (multi-número)
+    numbersPerCard: 5,
     orgFull: "Asociación El Portal del Palmeral",
     orgShort: "Portal del Palmeral",
     title: "¡Gran Sorteo Anual 2026!",
@@ -517,9 +566,11 @@
     $("gridRows").value = state.rows;
     $("startNumber").value = state.startNumber;
     $("totalCoupons").value = state.totalCoupons;
+    $("numbersPerCard").value = state.numbersPerCard;
     $("watermarkOpacity").value = state.watermarkOpacity;
     $("watermarkOpacityOut").textContent = state.watermarkOpacity + "%";
     updateOrientButtons();
+    updateTypeButtons();
     renderPrizeList();
     renderStubList();
     renderWatermarkRow();
@@ -529,6 +580,13 @@
     var isLandscape = state.orientation === "landscape";
     $("orientLandscape").setAttribute("aria-pressed", isLandscape ? "true" : "false");
     $("orientPortrait").setAttribute("aria-pressed", isLandscape ? "false" : "true");
+  }
+
+  function updateTypeButtons(){
+    var isCarton = state.cardType === "carton";
+    $("typeCoupon").setAttribute("aria-pressed", isCarton ? "false" : "true");
+    $("typeCarton").setAttribute("aria-pressed", isCarton ? "true" : "false");
+    $("couponForm").setAttribute("data-card-type", state.cardType);
   }
 
   function renderPrizeList(){
@@ -603,6 +661,26 @@
     onStateChanged();
   });
 
+  $("typeCoupon").addEventListener("click", function(){
+    if(state.cardType === "coupon") return;
+    state.cardType = "coupon";
+    state.orientation = "landscape";
+    state.cols = 2;
+    state.rows = 6;
+    fillFormFromState();
+    onStateChanged();
+  });
+  $("typeCarton").addEventListener("click", function(){
+    if(state.cardType === "carton") return;
+    state.cardType = "carton";
+    state.orientation = "portrait";
+    state.cols = 2;
+    state.rows = 5;
+    if(!state.numbersPerCard) state.numbersPerCard = 5;
+    fillFormFromState();
+    onStateChanged();
+  });
+
   function readGridInput(id, min, max){
     var v = parseInt($(id).value, 10);
     if(isNaN(v)) v = min;
@@ -616,16 +694,18 @@
     state.rows = readGridInput("gridRows", 1, 14);
     onStateChanged();
   });
+  var STEP_LIMITS = { gridCols:[1,8], gridRows:[1,14], numbersPerCard:[1,12] };
+  var STEP_STATE_KEY = { gridCols:"cols", gridRows:"rows", numbersPerCard:"numbersPerCard" };
   document.querySelectorAll(".stepper button[data-step]").forEach(function(btn){
     btn.addEventListener("click", function(){
       var targetId = btn.getAttribute("data-target");
       var delta = parseInt(btn.getAttribute("data-step"), 10);
-      var min = targetId === "gridCols" ? 1 : 1;
-      var max = targetId === "gridCols" ? 8 : 14;
+      var limits = STEP_LIMITS[targetId];
+      var min = limits[0], max = limits[1];
       var cur = parseInt($(targetId).value, 10) || min;
       var next = Math.max(min, Math.min(max, cur + delta));
       $(targetId).value = next;
-      if(targetId === "gridCols") state.cols = next; else state.rows = next;
+      state[STEP_STATE_KEY[targetId]] = next;
       onStateChanged();
     });
   });
@@ -640,6 +720,13 @@
     if(isNaN(v)) v = 1;
     v = Math.max(1, Math.min(5000, v));
     state.totalCoupons = v;
+    onStateChanged();
+  });
+  $("numbersPerCard").addEventListener("input", function(){
+    var v = parseInt(this.value, 10);
+    if(isNaN(v)) v = 1;
+    v = Math.max(1, Math.min(12, v));
+    state.numbersPerCard = v;
     onStateChanged();
   });
 
@@ -770,8 +857,10 @@
     var cellH = (availH - gapY*(rows-1)) / rows;
     cellW = Math.max(cellW, 4);
     cellH = Math.max(cellH, 4);
-    var scaleX = cellW / REF_W;
-    var scaleY = cellH / REF_H;
+    var refW = state.cardType === "carton" ? CARTON_REF_W : REF_W;
+    var refH = state.cardType === "carton" ? CARTON_REF_H : REF_H;
+    var scaleX = cellW / refW;
+    var scaleY = cellH / refH;
     return {
       pageW: pageW, pageH: pageH, cols: cols, rows: rows,
       gapX: gapX, gapY: gapY, cellW: cellW, cellH: cellH,
@@ -808,10 +897,17 @@
     el.textContent = css;
   }
 
+  function unitsPerCell(){
+    return state.cardType === "carton" ? state.numbersPerCard : 1;
+  }
+  function totalUnits(){
+    return Math.ceil(state.totalCoupons / unitsPerCell());
+  }
+
   function updateStats(){
     var layout = computeLayout();
     var total = state.totalCoupons;
-    var sheets = Math.ceil(total / layout.perSheet);
+    var sheets = Math.ceil(totalUnits() / layout.perSheet);
     var last = state.startNumber + total - 1;
     $("stats").innerHTML =
       '<div class="stat"><b class="num">'+total+'</b><span>Cupones</span></div>' +
@@ -888,12 +984,64 @@
     );
   }
 
+  function cardNumberSizes(count){
+    var extra = Math.max(0, count - 5);
+    return {
+      font: Math.max(3.6, 5.6 - extra*0.34).toFixed(2) + "pt",
+      pad: Math.max(0.22, 0.6 - extra*0.045).toFixed(2) + "mm",
+      gap: Math.max(0.3, 0.8 - extra*0.08).toFixed(2) + "mm"
+    };
+  }
+
+  function cartonInnerHTML(){
+    var prizesHtml = state.prizes.map(function(p){
+      return '<li>'+escText(p.text)+'</li>';
+    }).join("");
+
+    var priceHtml = state.price ? escText(state.price) : "$ ______";
+
+    var ns = cardNumberSizes(state.numbersPerCard);
+    var boxesHtml = "";
+    for(var i=0;i<state.numbersPerCard;i++){
+      boxesHtml += '<div class="num-box" data-role="cardnum" style="font-size:'+ns.font+';padding:'+ns.pad+' 0;"></div>';
+    }
+
+    var wmHtml = state.watermark ? '<div class="wm" style="background-image:url(\''+state.watermark+'\')"></div>' : "";
+
+    return (
+      wmHtml +
+      '<div class="carton-header">' +
+        '<div class="carton-title-wrap">' +
+          '<div class="carton-title">'+escText(state.title)+'</div>' +
+          '<div class="carton-subtitle">'+escText(state.subtitle)+'</div>' +
+        '</div>' +
+        '<span class="carton-price">'+priceHtml+'</span>' +
+      '</div>' +
+      '<div class="carton-content">' +
+        '<div class="carton-prizes">' +
+          '<div class="carton-prizes-title">Premios:</div>' +
+          '<ol class="carton-prizes-list">'+prizesHtml+'</ol>' +
+        '</div>' +
+        '<div class="carton-numbers" style="gap:'+ns.gap+'">' +
+          '<div class="carton-numbers-title">Elegí tu N.º</div>' +
+          boxesHtml +
+        '</div>' +
+      '</div>' +
+      '<div class="carton-footer">Sorteo: '+escText(state.drawDate)+' &nbsp;·&nbsp; '+escText(state.place)+'</div>'
+    );
+  }
+
   function makeCellTemplateNode(){
     var cell = document.createElement("div");
     cell.className = "coupon-cell";
     var inner = document.createElement("div");
-    inner.className = "coupon";
-    inner.innerHTML = couponInnerHTML();
+    if(state.cardType === "carton"){
+      inner.className = "carton-card";
+      inner.innerHTML = cartonInnerHTML();
+    } else {
+      inner.className = "coupon";
+      inner.innerHTML = couponInnerHTML();
+    }
     cell.appendChild(inner);
     return cell;
   }
@@ -905,6 +1053,29 @@
     if(nums[1]) nums[1].textContent = label;
   }
 
+  function fillCartonNumbers(node, startN, remaining){
+    var boxes = node.querySelectorAll('[data-role="cardnum"]');
+    for(var i=0;i<boxes.length;i++){
+      if(i < remaining){
+        boxes[i].textContent = pad4(startN + i);
+        boxes[i].style.visibility = "";
+      } else {
+        boxes[i].style.visibility = "hidden";
+      }
+    }
+  }
+
+  function fillCellUnit(node, unitIndex){
+    var perCell = unitsPerCell();
+    var startN = state.startNumber + unitIndex * perCell;
+    if(state.cardType === "carton"){
+      var remaining = Math.min(perCell, state.totalCoupons - unitIndex * perCell);
+      fillCartonNumbers(node, startN, remaining);
+    } else {
+      fillNumber(node, startN);
+    }
+  }
+
   function renderPreview(){
     var layout = computeLayout();
     applyGlobalTokens(layout);
@@ -912,10 +1083,11 @@
     var sheet = $("previewSheet");
     sheet.innerHTML = "";
     var tpl = makeCellTemplateNode();
-    var count = Math.min(layout.perSheet, state.totalCoupons);
+    var units = totalUnits();
+    var count = Math.min(layout.perSheet, units);
     for(var i=0;i<count;i++){
       var node = tpl.cloneNode(true);
-      fillNumber(node, state.startNumber + i);
+      fillCellUnit(node, i);
       sheet.appendChild(node);
     }
     fitPreview(layout);
@@ -928,18 +1100,17 @@
     var area = $("printArea");
     area.innerHTML = "";
     var tpl = makeCellTemplateNode();
-    var total = state.totalCoupons;
+    var units = totalUnits();
     var perSheet = layout.perSheet;
-    var sheets = Math.ceil(total / perSheet);
+    var sheets = Math.ceil(units / perSheet);
     var frag = document.createDocumentFragment();
     for(var s=0; s<sheets; s++){
       var sheetEl = document.createElement("div");
       sheetEl.className = "a4-sheet";
-      var countOnSheet = Math.min(perSheet, total - s*perSheet);
+      var countOnSheet = Math.min(perSheet, units - s*perSheet);
       for(var i=0;i<countOnSheet;i++){
-        var n = state.startNumber + s*perSheet + i;
         var node = tpl.cloneNode(true);
-        fillNumber(node, n);
+        fillCellUnit(node, s*perSheet + i);
         sheetEl.appendChild(node);
       }
       frag.appendChild(sheetEl);
