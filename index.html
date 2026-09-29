@@ -140,6 +140,11 @@
   .warn{ font-size:11.5px; color:var(--cta); margin:6px 0 0; display:none; }
   .warn.show{ display:block; }
 
+  select{
+    width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px;
+    background:var(--surface-2); color:var(--ink); font-size:13px; font-family:inherit;
+  }
+
   input[type="color"]{
     -webkit-appearance:none; appearance:none; width:36px; height:28px; padding:0;
     border:1px solid var(--line); border-radius:6px; background:none; cursor:pointer;
@@ -225,6 +230,7 @@
 
   /* ================= COUPON DESIGN (shared: preview + print) ================= */
   .a4-sheet{
+    position:relative;
     width:var(--tk-page-w); height:var(--tk-page-h); background:#ffffff; padding:6mm;
     display:grid;
     grid-template-columns:repeat(var(--tk-cols), 1fr);
@@ -232,8 +238,9 @@
     column-gap:var(--tk-gap-x); row-gap:var(--tk-gap-y);
     box-shadow: 0 1px 3px rgba(0,0,0,.15);
   }
+  .a4-sheet.has-sheet-wm .coupon-cell{ background:transparent; }
   .coupon-cell{
-    position:relative; overflow:hidden; border:1px dashed #9db3ab; border-radius:2mm; background:#ffffff;
+    position:relative; z-index:1; overflow:hidden; border:1px dashed #9db3ab; border-radius:2mm; background:#ffffff;
   }
   .coupon{
     position:absolute; top:0; left:0; width:142mm; height:31mm;
@@ -241,9 +248,16 @@
     display:flex; flex-direction:row;
     font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; color:#0f172a;
   }
-  .wm{
-    position:absolute; inset:0; background-repeat:no-repeat; background-position:center;
-    background-size:contain; opacity:var(--tk-wm-opacity); pointer-events:none; z-index:0;
+  /* background image layer: shared by per-card watermark and full-sheet mode.
+     the img fills its clip box (same size, so % translate == % of container)
+     then user-controlled translate/scale pan & zoom it; overflow:hidden clips
+     anything that goes past the frame. */
+  .wm-clip{
+    position:absolute; inset:0; overflow:hidden; opacity:var(--tk-wm-opacity); pointer-events:none; z-index:0;
+  }
+  .wm-sheet{ z-index:0; }
+  .wm-img{
+    position:absolute; top:50%; left:50%; width:100%; height:100%; object-fit:contain;
   }
   .stub, .main{ position:relative; z-index:1; }
   .stub{
@@ -424,6 +438,21 @@
       <form id="couponForm" autocomplete="off">
 
         <section class="field-group">
+          <h2>Proyecto</h2>
+          <label for="projectSelect"><span class="lbl">Proyecto activo</span>
+            <select id="projectSelect"></select>
+          </label>
+          <label for="projectNameInput"><span class="lbl">Nombre del proyecto</span>
+            <input type="text" id="projectNameInput" maxlength="60"></label>
+          <div class="row2">
+            <button type="button" class="ghost" id="newProjectBtn">+ Nuevo</button>
+            <button type="button" class="ghost" id="duplicateProjectBtn">⧉ Duplicar</button>
+          </div>
+          <button type="button" class="ghost" id="deleteProjectBtn">🗑 Eliminar este proyecto</button>
+          <p class="hint">Cada proyecto guarda su propio diseño, premios y numeración por separado.</p>
+        </section>
+
+        <section class="field-group">
           <h2>Tipo de cartón</h2>
           <div class="seg" role="group" aria-label="Tipo de cartón">
             <button type="button" id="typeCoupon" aria-pressed="true">Cupón con talón</button>
@@ -463,6 +492,17 @@
           </div>
           <label for="price"><span class="lbl">Valor del bono</span>
             <input type="text" id="price" maxlength="18" placeholder="Ej: $2.000 (vacío = línea para completar a mano)"></label>
+          <label for="headingFontScale"><span class="lbl">Tamaño de fuente del título y subtítulo</span></label>
+          <div class="range-row">
+            <input type="range" id="headingFontScale" min="50" max="200" step="5" value="100">
+            <output id="headingFontScaleOut">100%</output>
+          </div>
+          <label for="secondaryFontScale"><span class="lbl">Tamaño de fuente de textos secundarios</span></label>
+          <div class="range-row">
+            <input type="range" id="secondaryFontScale" min="50" max="200" step="5" value="100">
+            <output id="secondaryFontScaleOut">100%</output>
+          </div>
+          <p class="hint">Textos secundarios: organización, talón, pie, fecha y precio.</p>
         </section>
 
         <section class="field-group">
@@ -548,29 +588,51 @@
         </section>
 
         <section class="field-group">
-          <h2>Marca de agua</h2>
-          <label for="watermarkFile"><span class="lbl">Imagen de fondo del cupón</span>
+          <h2>Imagen de fondo</h2>
+          <label for="watermarkFile"><span class="lbl">Imagen</span>
             <input type="file" id="watermarkFile" accept="image/*"></label>
           <div id="watermarkPreviewRow" hidden>
-            <img id="watermarkThumb" alt="Marca de agua cargada">
+            <img id="watermarkThumb" alt="Imagen de fondo cargada">
             <button type="button" class="icon-btn" id="removeWatermark" title="Quitar imagen">✕</button>
           </div>
+          <div class="seg" role="group" aria-label="Alcance de la imagen de fondo">
+            <button type="button" id="wmModeCard" aria-pressed="true">Por cartón</button>
+            <button type="button" id="wmModeSheet" aria-pressed="false">Hoja completa</button>
+          </div>
+          <p class="hint" id="wmModeHint">Se repite de fondo, detrás del texto, en cada cartón.</p>
+          <label for="watermarkOpacity"><span class="lbl">Opacidad</span></label>
           <div class="range-row">
-            <input type="range" id="watermarkOpacity" min="3" max="40" value="10">
+            <input type="range" id="watermarkOpacity" min="3" max="100" value="10">
             <output id="watermarkOpacityOut">10%</output>
           </div>
-          <p class="hint">Se aplica de fondo, detrás del texto, en cada cupón.</p>
+          <label for="watermarkScale"><span class="lbl">Tamaño / zoom</span></label>
+          <div class="range-row">
+            <input type="range" id="watermarkScale" min="30" max="300" step="5" value="100">
+            <output id="watermarkScaleOut">100%</output>
+          </div>
+          <label for="watermarkX"><span class="lbl">Posición horizontal</span></label>
+          <div class="range-row">
+            <input type="range" id="watermarkX" min="-50" max="50" step="1" value="0">
+            <output id="watermarkXOut">0%</output>
+          </div>
+          <label for="watermarkY"><span class="lbl">Posición vertical</span></label>
+          <div class="range-row">
+            <input type="range" id="watermarkY" min="-50" max="50" step="1" value="0">
+            <output id="watermarkYOut">0%</output>
+          </div>
+          <p class="hint">Lo que sobresalga del cartón (o de la hoja) queda recortado.</p>
         </section>
 
         <section class="field-group">
           <h2>Configuración</h2>
-          <p class="hint">Se guarda automáticamente en este navegador. También podés exportarla a un archivo para respaldarla o llevarla a otra computadora.</p>
-          <button type="button" class="ghost" id="exportBtn">⬇️ Exportar configuración (.json)</button>
-          <label class="ghost" for="importFile" style="display:block; text-align:center; cursor:pointer;">⬆️ Importar configuración (.json)</label>
+          <p class="hint">Cada proyecto se guarda automáticamente en este navegador. También podés exportarlo a un archivo para respaldarlo o llevarlo a otra computadora.</p>
+          <button type="button" class="ghost" id="exportBtn">⬇️ Exportar este proyecto (.json)</button>
+          <button type="button" class="ghost" id="exportAllBtn">⬇️ Exportar todos los proyectos (.json)</button>
+          <label class="ghost" for="importFile" style="display:block; text-align:center; cursor:pointer;">⬆️ Importar proyecto(s) (.json)</label>
           <input type="file" id="importFile" accept="application/json,.json" style="display:none">
         </section>
 
-        <button type="button" class="ghost" id="resetBtn">Restablecer valores por defecto</button>
+        <button type="button" class="ghost" id="resetBtn">Restablecer este proyecto a los valores por defecto</button>
       </form>
     </aside>
 
@@ -596,7 +658,8 @@
 (function(){
   "use strict";
   var MM_PX = 96/25.4;
-  var STORAGE_KEY = "imprenta_cupones_state_v2";
+  var STORAGE_KEY = "imprenta_cupones_state_v2"; // legacy single-project key, read once for migration
+  var PROJECTS_KEY = "imprenta_cupones_projects_v1";
   var REF_W = 142; // mm — reference coupon design width
   var REF_H = 31;  // mm — reference coupon design height
   var CARTON_REF_W = 96; // mm — reference carton design width
@@ -633,26 +696,78 @@
     totalCoupons: 1000,
     watermark: null,
     watermarkOpacity: 10,
+    watermarkMode: "card", // "card" (repeats per cartón) | "sheet" (one image behind the whole page)
+    watermarkScale: 100,
+    watermarkX: 0,
+    watermarkY: 0,
     prizeFontScale: 1,
     numberBoxScale: 1,
-    numberFontScale: 1
+    numberFontScale: 1,
+    headingFontScale: 1,
+    secondaryFontScale: 1
   };
 
   var state = null;
+  var projectsStore = null; // { projects: [{id, name, state}], currentId }
 
-  function loadState(){
+  function genId(){
+    return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function makeProject(name, projState){
+    return { id: genId(), name: name, state: projState };
+  }
+
+  function loadProjectsStore(){
     try{
-      var raw = localStorage.getItem(STORAGE_KEY);
+      var raw = localStorage.getItem(PROJECTS_KEY);
       if(raw){
         var parsed = JSON.parse(raw);
-        return Object.assign({}, defaults, parsed);
+        if(parsed && Array.isArray(parsed.projects) && parsed.projects.length){
+          parsed.projects.forEach(function(p){ p.state = Object.assign({}, defaults, p.state); });
+          if(!parsed.projects.some(function(p){ return p.id === parsed.currentId; })){
+            parsed.currentId = parsed.projects[0].id;
+          }
+          return parsed;
+        }
       }
     }catch(e){}
-    return JSON.parse(JSON.stringify(defaults));
+    // migrate the old single-project storage if present, otherwise start fresh
+    var migratedState = null;
+    try{
+      var oldRaw = localStorage.getItem(STORAGE_KEY);
+      if(oldRaw) migratedState = Object.assign({}, defaults, JSON.parse(oldRaw));
+    }catch(e){}
+    var project = makeProject("Mi proyecto", migratedState || JSON.parse(JSON.stringify(defaults)));
+    return { projects: [project], currentId: project.id };
+  }
+
+  function saveProjectsStore(){
+    try{ localStorage.setItem(PROJECTS_KEY, JSON.stringify(projectsStore)); }catch(e){}
+  }
+
+  function getCurrentProject(){
+    var found = projectsStore.projects.find(function(p){ return p.id === projectsStore.currentId; });
+    return found || projectsStore.projects[0];
+  }
+
+  function addProject(name, projState){
+    var project = makeProject(name, projState);
+    projectsStore.projects.push(project);
+    return project.id;
+  }
+
+  function switchToProject(id){
+    projectsStore.currentId = id;
+    state = getCurrentProject().state;
+    saveProjectsStore();
+    fillFormFromState();
+    updateStats();
+    renderPreview();
   }
 
   function saveState(){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+    try{ localStorage.setItem(PROJECTS_KEY, JSON.stringify(projectsStore)); }catch(e){}
   }
 
   // ---------------- form <-> state wiring ----------------
@@ -681,11 +796,45 @@
     $("numberBoxScaleOut").textContent = Math.round(state.numberBoxScale * 100) + "%";
     $("numberFontScale").value = Math.round(state.numberFontScale * 100);
     $("numberFontScaleOut").textContent = Math.round(state.numberFontScale * 100) + "%";
+    $("headingFontScale").value = Math.round(state.headingFontScale * 100);
+    $("headingFontScaleOut").textContent = Math.round(state.headingFontScale * 100) + "%";
+    $("secondaryFontScale").value = Math.round(state.secondaryFontScale * 100);
+    $("secondaryFontScaleOut").textContent = Math.round(state.secondaryFontScale * 100) + "%";
+    $("watermarkScale").value = state.watermarkScale;
+    $("watermarkScaleOut").textContent = state.watermarkScale + "%";
+    $("watermarkX").value = state.watermarkX;
+    $("watermarkXOut").textContent = state.watermarkX + "%";
+    $("watermarkY").value = state.watermarkY;
+    $("watermarkYOut").textContent = state.watermarkY + "%";
+    $("projectNameInput").value = getCurrentProject().name;
+    renderProjectSelect();
     updateOrientButtons();
     updateTypeButtons();
+    updateWatermarkModeButtons();
     renderPrizeList();
     renderStubList();
     renderWatermarkRow();
+  }
+
+  function renderProjectSelect(){
+    var sel = $("projectSelect");
+    sel.innerHTML = "";
+    projectsStore.projects.forEach(function(p){
+      var opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.name || "(sin nombre)";
+      sel.appendChild(opt);
+    });
+    sel.value = projectsStore.currentId;
+  }
+
+  function updateWatermarkModeButtons(){
+    var isSheet = state.watermarkMode === "sheet";
+    $("wmModeCard").setAttribute("aria-pressed", isSheet ? "false" : "true");
+    $("wmModeSheet").setAttribute("aria-pressed", isSheet ? "true" : "false");
+    $("wmModeHint").textContent = isSheet
+      ? "Una sola imagen detrás de toda la hoja, se ve a través de los cartones."
+      : "Se repite de fondo, detrás del texto, en cada cartón.";
   }
 
   function updateOrientButtons(){
@@ -776,6 +925,36 @@
 
   $("accentColor").addEventListener("input", function(){ state.accent = this.value; onStateChanged(); });
   $("ctaColor").addEventListener("input", function(){ state.cta = this.value; onStateChanged(); });
+
+  $("projectSelect").addEventListener("change", function(){
+    switchToProject(this.value);
+  });
+  $("projectNameInput").addEventListener("input", function(){
+    getCurrentProject().name = this.value;
+    renderProjectSelect();
+    saveProjectsStore();
+  });
+  $("newProjectBtn").addEventListener("click", function(){
+    var id = addProject("Nuevo proyecto", JSON.parse(JSON.stringify(defaults)));
+    switchToProject(id);
+  });
+  $("duplicateProjectBtn").addEventListener("click", function(){
+    var cur = getCurrentProject();
+    var id = addProject((cur.name || "Proyecto") + " (copia)", JSON.parse(JSON.stringify(cur.state)));
+    switchToProject(id);
+  });
+  $("deleteProjectBtn").addEventListener("click", function(){
+    if(projectsStore.projects.length <= 1){
+      alert("No podés eliminar el único proyecto.");
+      return;
+    }
+    var cur = getCurrentProject();
+    if(!confirm('¿Eliminar el proyecto "'+cur.name+'"? Esta acción no se puede deshacer.')) return;
+    var idx = projectsStore.projects.findIndex(function(p){ return p.id === projectsStore.currentId; });
+    projectsStore.projects.splice(idx, 1);
+    var nextId = projectsStore.projects[Math.max(0, idx - 1)].id;
+    switchToProject(nextId);
+  });
 
   $("orientLandscape").addEventListener("click", function(){
     state.orientation = "landscape";
@@ -964,6 +1143,16 @@
     $("numberFontScaleOut").textContent = this.value + "%";
     onStateChanged(true);
   });
+  $("headingFontScale").addEventListener("input", function(){
+    state.headingFontScale = parseInt(this.value, 10) / 100;
+    $("headingFontScaleOut").textContent = this.value + "%";
+    onStateChanged(true);
+  });
+  $("secondaryFontScale").addEventListener("input", function(){
+    state.secondaryFontScale = parseInt(this.value, 10) / 100;
+    $("secondaryFontScaleOut").textContent = this.value + "%";
+    onStateChanged(true);
+  });
 
   $("stubList").addEventListener("input", function(e){
     var t = e.target;
@@ -1001,7 +1190,7 @@
     reader.onload = function(ev){
       var img = new Image();
       img.onload = function(){
-        var maxDim = 640;
+        var maxDim = 1400;
         var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
         var w = Math.max(1, Math.round(img.width * scale));
         var h = Math.max(1, Math.round(img.height * scale));
@@ -1009,7 +1198,7 @@
         canvas.width = w; canvas.height = h;
         var ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
-        state.watermark = canvas.toDataURL("image/jpeg", 0.82);
+        state.watermark = canvas.toDataURL("image/jpeg", 0.88);
         renderWatermarkRow();
         onStateChanged();
       };
@@ -1024,26 +1213,72 @@
     onStateChanged();
   });
 
+  $("wmModeCard").addEventListener("click", function(){
+    state.watermarkMode = "card";
+    updateWatermarkModeButtons();
+    onStateChanged();
+  });
+  $("wmModeSheet").addEventListener("click", function(){
+    state.watermarkMode = "sheet";
+    updateWatermarkModeButtons();
+    onStateChanged();
+  });
+  $("watermarkScale").addEventListener("input", function(){
+    state.watermarkScale = parseInt(this.value, 10);
+    $("watermarkScaleOut").textContent = state.watermarkScale + "%";
+    onStateChanged(true);
+  });
+  $("watermarkX").addEventListener("input", function(){
+    state.watermarkX = parseInt(this.value, 10);
+    $("watermarkXOut").textContent = state.watermarkX + "%";
+    onStateChanged(true);
+  });
+  $("watermarkY").addEventListener("input", function(){
+    state.watermarkY = parseInt(this.value, 10);
+    $("watermarkYOut").textContent = state.watermarkY + "%";
+    onStateChanged(true);
+  });
+
   $("resetBtn").addEventListener("click", function(){
-    if(!confirm("¿Restablecer todos los campos a los valores por defecto?")) return;
+    if(!confirm("¿Restablecer este proyecto a los valores por defecto?")) return;
     state = JSON.parse(JSON.stringify(defaults));
+    getCurrentProject().state = state;
     fillFormFromState();
     onStateChanged();
   });
 
-  $("exportBtn").addEventListener("click", function(){
-    var json = JSON.stringify(state, null, 2);
+  function downloadJson(obj, baseName){
+    var json = JSON.stringify(obj, null, 2);
     var blob = new Blob([json], {type: "application/json"});
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     var stamp = new Date().toISOString().slice(0,10);
     a.href = url;
-    a.download = "cupones-config-" + stamp + ".json";
+    a.download = baseName + "-" + stamp + ".json";
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  $("exportBtn").addEventListener("click", function(){
+    var cur = getCurrentProject();
+    downloadJson({ kind: "cupones-project", name: cur.name, state: state }, slugify(cur.name || "proyecto"));
   });
+
+  $("exportAllBtn").addEventListener("click", function(){
+    var payload = {
+      kind: "cupones-projects",
+      projects: projectsStore.projects.map(function(p){ return { name: p.name, state: p.state }; })
+    };
+    downloadJson(payload, "todos-los-proyectos");
+  });
+
+  function slugify(s){
+    return String(s).toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "proyecto";
+  }
 
   $("importFile").addEventListener("change", function(){
     var file = this.files && this.files[0];
@@ -1057,13 +1292,33 @@
         alert("El archivo no es un JSON válido.");
         return;
       }
-      if(!parsed || typeof parsed !== "object" || Array.isArray(parsed)){
-        alert("El archivo no tiene el formato de configuración esperado.");
+      if(!parsed || typeof parsed !== "object"){
+        alert("El archivo no tiene el formato de proyecto esperado.");
         return;
       }
-      state = Object.assign({}, defaults, parsed);
-      fillFormFromState();
-      onStateChanged();
+      var addedIds = [];
+      if(parsed.kind === "cupones-projects" && Array.isArray(parsed.projects)){
+        parsed.projects.forEach(function(p){
+          if(p && p.state && typeof p.state === "object"){
+            addedIds.push(addProject(p.name || "Importado", Object.assign({}, defaults, p.state)));
+          }
+        });
+        if(!addedIds.length){
+          alert("El archivo no contiene proyectos válidos.");
+          return;
+        }
+      } else if(parsed.kind === "cupones-project" && parsed.state && typeof parsed.state === "object"){
+        addedIds.push(addProject(parsed.name || "Importado", Object.assign({}, defaults, parsed.state)));
+      } else if(!Array.isArray(parsed)){
+        // legacy export from an earlier version: the raw state, no wrapper
+        var legacyName = parsed.title ? ("Importado: " + parsed.title) : "Importado";
+        addedIds.push(addProject(legacyName, Object.assign({}, defaults, parsed)));
+      } else {
+        alert("El archivo no tiene el formato de proyecto esperado.");
+        return;
+      }
+      saveProjectsStore();
+      switchToProject(addedIds[addedIds.length - 1]);
     };
     reader.onerror = function(){ alert("No se pudo leer el archivo."); };
     reader.readAsText(file);
@@ -1185,6 +1440,25 @@
     return s;
   }
 
+  // ---------------- background image (watermark) rendering ----------------
+  function watermarkTransform(){
+    return "translate(calc(-50% + " + state.watermarkX + "%), calc(-50% + " + state.watermarkY + "%)) scale(" + (state.watermarkScale/100) + ")";
+  }
+
+  // per-card watermark: rendered inside each cartón/cupón, hidden when the
+  // image is set to "hoja completa" mode (the sheet-level layer covers it).
+  function watermarkHtml(){
+    if(!state.watermark || state.watermarkMode === "sheet") return "";
+    return '<div class="wm-clip"><img class="wm-img" src="'+state.watermark+'" style="transform:'+watermarkTransform()+'"></div>';
+  }
+
+  // sheet-level watermark: one image behind the whole A4 page, independent
+  // of the grid of cartones tiled on top of it.
+  function sheetWatermarkHtml(){
+    if(!state.watermark || state.watermarkMode !== "sheet") return "";
+    return '<div class="wm-clip wm-sheet"><img class="wm-img" src="'+state.watermark+'" style="transform:'+watermarkTransform()+'"></div>';
+  }
+
   // ---------------- coupon rendering ----------------
   function prizeFontSizes(count){
     var extra = Math.max(0, count - 6);
@@ -1197,6 +1471,8 @@
   }
 
   function couponInnerHTML(){
+    var hs = state.headingFontScale || 1;
+    var ss = state.secondaryFontScale || 1;
     var fs = prizeFontSizes(state.prizes.length);
     var prizesHtml = state.prizes.map(function(p){
       return '<div class="prize">' +
@@ -1205,34 +1481,34 @@
     }).join("");
 
     var fieldsHtml = state.stubFields.map(function(label){
-      return '<div class="field"><span class="field-label">'+escText(label)+'</span><div class="field-line"></div></div>';
+      return '<div class="field"><span class="field-label" style="font-size:'+(3.9*ss).toFixed(2)+'pt">'+escText(label)+'</span><div class="field-line"></div></div>';
     }).join("");
 
     var priceHtml = state.price
-      ? '<span class="price-tag">'+escText(state.price)+'</span>'
-      : '<span class="price-tag">$ ______</span>';
+      ? '<span class="price-tag" style="font-size:'+(5.4*ss).toFixed(2)+'pt">'+escText(state.price)+'</span>'
+      : '<span class="price-tag" style="font-size:'+(5.4*ss).toFixed(2)+'pt">$ ______</span>';
 
-    var wmHtml = state.watermark ? '<div class="wm" style="background-image:url(\''+state.watermark+'\')"></div>' : "";
+    var wmHtml = watermarkHtml();
 
     return (
       wmHtml +
       '<div class="stub">' +
-        '<div class="stub-top"><span class="stub-org">'+escText(state.orgShort)+'</span><span class="ticket-no" data-role="num"></span></div>' +
-        '<div class="stub-title">Talón de control</div>' +
+        '<div class="stub-top"><span class="stub-org" style="font-size:'+(4.3*ss).toFixed(2)+'pt">'+escText(state.orgShort)+'</span><span class="ticket-no" data-role="num" style="font-size:'+(8.4*ss).toFixed(2)+'pt"></span></div>' +
+        '<div class="stub-title" style="font-size:'+(5.4*ss).toFixed(2)+'pt">Talón de control</div>' +
         '<div class="stub-fields">'+fieldsHtml+'</div>' +
       '</div>' +
       '<div class="main">' +
         '<div class="main-top">' +
           '<div style="min-width:0;flex:1">' +
-            '<div class="main-org">'+escText(state.orgFull)+'</div>' +
-            '<div class="main-title">'+escText(state.title)+'</div>' +
-            '<div class="main-subtitle">'+escText(state.subtitle)+'</div>' +
+            '<div class="main-org" style="font-size:'+(4.6*ss).toFixed(2)+'pt">'+escText(state.orgFull)+'</div>' +
+            '<div class="main-title" style="font-size:'+(9.6*hs).toFixed(2)+'pt">'+escText(state.title)+'</div>' +
+            '<div class="main-subtitle" style="font-size:'+(5*hs).toFixed(2)+'pt">'+escText(state.subtitle)+'</div>' +
           '</div>' +
-          '<span class="ticket-no" data-role="num"></span>' +
+          '<span class="ticket-no" data-role="num" style="font-size:'+(8.4*ss).toFixed(2)+'pt"></span>' +
         '</div>' +
         '<div class="prizes">'+prizesHtml+'</div>' +
         '<div class="main-footer">' +
-          '<div class="footer-meta"><b>Sorteo:</b> '+escText(state.drawDate)+' &nbsp;·&nbsp; <b>Lugar:</b> '+escText(state.place)+'</div>' +
+          '<div class="footer-meta" style="font-size:'+(4.4*ss).toFixed(2)+'pt"><b>Sorteo:</b> '+escText(state.drawDate)+' &nbsp;·&nbsp; <b>Lugar:</b> '+escText(state.place)+'</div>' +
           priceHtml +
         '</div>' +
       '</div>'
@@ -1251,6 +1527,8 @@
   }
 
   function cartonInnerHTML(){
+    var hs = state.headingFontScale || 1;
+    var ss = state.secondaryFontScale || 1;
     var prizeFontSize = (4.4 * (state.prizeFontScale || 1)).toFixed(2) + "pt";
     var prizesHtml = state.prizes.map(function(p){
       return '<li style="font-size:'+prizeFontSize+'">'+escText(p.text)+'</li>';
@@ -1264,28 +1542,28 @@
       boxesHtml += '<div class="num-box" data-role="cardnum" style="font-size:'+ns.font+';padding:'+ns.pad+' 0;"></div>';
     }
 
-    var wmHtml = state.watermark ? '<div class="wm" style="background-image:url(\''+state.watermark+'\')"></div>' : "";
+    var wmHtml = watermarkHtml();
 
     return (
       wmHtml +
       '<div class="carton-header">' +
         '<div class="carton-title-wrap">' +
-          '<div class="carton-title">'+escText(state.title)+'</div>' +
-          '<div class="carton-subtitle">'+escText(state.subtitle)+'</div>' +
+          '<div class="carton-title" style="font-size:'+(8.5*hs).toFixed(2)+'pt">'+escText(state.title)+'</div>' +
+          '<div class="carton-subtitle" style="font-size:'+(5.4*hs).toFixed(2)+'pt">'+escText(state.subtitle)+'</div>' +
         '</div>' +
-        '<span class="carton-price">'+priceHtml+'</span>' +
+        '<span class="carton-price" style="font-size:'+(6*ss).toFixed(2)+'pt">'+priceHtml+'</span>' +
       '</div>' +
       '<div class="carton-content">' +
         '<div class="carton-prizes">' +
-          '<div class="carton-prizes-title">Premios:</div>' +
+          '<div class="carton-prizes-title" style="font-size:'+(5*ss).toFixed(2)+'pt">Premios:</div>' +
           '<ol class="carton-prizes-list">'+prizesHtml+'</ol>' +
         '</div>' +
         '<div class="carton-numbers" style="gap:'+ns.gap+'">' +
-          '<div class="carton-numbers-title">Elegí tu N.º</div>' +
+          '<div class="carton-numbers-title" style="font-size:'+(4.6*ss).toFixed(2)+'pt">Elegí tu N.º</div>' +
           boxesHtml +
         '</div>' +
       '</div>' +
-      '<div class="carton-footer">Sorteo: '+escText(state.drawDate)+' &nbsp;·&nbsp; '+escText(state.place)+'</div>'
+      '<div class="carton-footer" style="font-size:'+(4.4*ss).toFixed(2)+'pt">Sorteo: '+escText(state.drawDate)+' &nbsp;·&nbsp; '+escText(state.place)+'</div>'
     );
   }
 
@@ -1300,6 +1578,8 @@
   }
 
   function illusInnerHTML(){
+    var hs = state.headingFontScale || 1;
+    var ss = state.secondaryFontScale || 1;
     var priceHtml = state.price ? escText(state.price) : "$ ______";
     var prizeTextFont = (5.2 * (state.prizeFontScale || 1)).toFixed(2) + "pt";
 
@@ -1319,32 +1599,32 @@
       boxesHtml += '<div class="num-box" data-role="cardnum" style="font-size:'+ns.font+';padding:'+ns.pad+' 0;"></div>';
     }
 
-    var wmHtml = state.watermark ? '<div class="wm" style="background-image:url(\''+state.watermark+'\')"></div>' : "";
+    var wmHtml = watermarkHtml();
 
     return (
       wmHtml +
       '<div class="illus-header">' +
-        '<span class="illus-price-ticket">Vale<br>'+priceHtml+'</span>' +
+        '<span class="illus-price-ticket" style="font-size:'+(6.5*ss).toFixed(2)+'pt">Vale<br>'+priceHtml+'</span>' +
         '<div class="illus-title-wrap">' +
-          '<div class="illus-title">'+escText(state.title)+'</div>' +
-          '<div class="illus-ribbon">'+escText(state.subtitle)+'</div>' +
+          '<div class="illus-title" style="font-size:'+(17*hs).toFixed(2)+'pt">'+escText(state.title)+'</div>' +
+          '<div class="illus-ribbon" style="font-size:'+(6.4*hs).toFixed(2)+'pt">'+escText(state.subtitle)+'</div>' +
         '</div>' +
       '</div>' +
       '<div class="illus-body">' +
         '<div class="illus-prizes">'+prizesHtml+'</div>' +
         '<div class="illus-numbers">' +
-          '<div class="illus-numbers-title">Elegí tu número</div>' +
+          '<div class="illus-numbers-title" style="font-size:'+(5*ss).toFixed(2)+'pt">Elegí tu número</div>' +
           '<div class="illus-numbers-grid">'+boxesHtml+'</div>' +
         '</div>' +
       '</div>' +
       '<div class="illus-footer">' +
         '<div class="illus-date">' +
-          '<span class="illus-date-label">Se sortea el</span>' +
-          '<span class="illus-date-value">'+escText(state.drawDate)+'</span>' +
+          '<span class="illus-date-label" style="font-size:'+(4.2*ss).toFixed(2)+'pt">Se sortea el</span>' +
+          '<span class="illus-date-value" style="font-size:'+(6.2*ss).toFixed(2)+'pt">'+escText(state.drawDate)+'</span>' +
         '</div>' +
-        '<div class="illus-luck">¡Mucha<br>suerte!</div>' +
+        '<div class="illus-luck" style="font-size:'+(4.4*ss).toFixed(2)+'pt">¡Mucha<br>suerte!</div>' +
       '</div>' +
-      '<div class="illus-thanks">¡Gracias por colaborar!</div>'
+      '<div class="illus-thanks" style="font-size:'+(5*ss).toFixed(2)+'pt">¡Gracias por colaborar!</div>'
     );
   }
 
@@ -1401,7 +1681,8 @@
     applyGlobalTokens(layout);
     updatePageSizeStyle();
     var sheet = $("previewSheet");
-    sheet.innerHTML = "";
+    sheet.className = "a4-sheet" + (state.watermark && state.watermarkMode === "sheet" ? " has-sheet-wm" : "");
+    sheet.innerHTML = sheetWatermarkHtml();
     var tpl = makeCellTemplateNode();
     var units = totalUnits();
     var count = Math.min(layout.perSheet, units);
@@ -1423,10 +1704,12 @@
     var units = totalUnits();
     var perSheet = layout.perSheet;
     var sheets = Math.ceil(units / perSheet);
+    var hasSheetWm = state.watermark && state.watermarkMode === "sheet";
     var frag = document.createDocumentFragment();
     for(var s=0; s<sheets; s++){
       var sheetEl = document.createElement("div");
-      sheetEl.className = "a4-sheet";
+      sheetEl.className = "a4-sheet" + (hasSheetWm ? " has-sheet-wm" : "");
+      sheetEl.innerHTML = sheetWatermarkHtml();
       var countOnSheet = Math.min(perSheet, units - s*perSheet);
       for(var i=0;i<countOnSheet;i++){
         var node = tpl.cloneNode(true);
@@ -1457,7 +1740,9 @@
   });
 
   // ---------------- init ----------------
-  state = loadState();
+  projectsStore = loadProjectsStore();
+  state = getCurrentProject().state;
+  saveProjectsStore();
   fillFormFromState();
   updateStats();
   renderPreview();
