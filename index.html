@@ -311,10 +311,77 @@
   .num-box{ width:100%; box-sizing:border-box; border:.6pt solid var(--tk-accent); background:color-mix(in srgb, var(--tk-accent) 6%, white); text-align:center; font-size:5.6pt; font-weight:700; color:#0f172a; padding:.6mm 0; border-radius:1mm; }
   .carton-footer{ position:relative; z-index:1; text-align:center; background:color-mix(in srgb, var(--tk-accent) 8%, white); border-radius:1.4mm; padding:.8mm; font-size:4.4pt; font-weight:700; color:color-mix(in srgb, var(--tk-cta) 85%, black 10%); }
 
+  /* ================= ILLUSTRATED CARTON DESIGN (poster-style, shared: preview + print) ================= */
+  .illus-card{
+    position:absolute; top:0; left:0; width:100mm; height:140mm;
+    transform-origin:top left; transform:scale(var(--tk-scale-x), var(--tk-scale-y));
+    display:flex; flex-direction:column;
+    font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; color:#0f172a;
+    padding:4mm;
+  }
+  .illus-header{ position:relative; z-index:1; display:flex; align-items:center; gap:3mm; }
+  .illus-price-ticket{
+    flex:none; background:var(--tk-cta); color:#fff; font-weight:800; font-size:6.5pt; text-align:center;
+    line-height:1.25; border:.8pt dashed rgba(255,255,255,.65); border-radius:2mm; padding:2mm 3mm;
+    transform:rotate(-4deg); box-shadow:0 1mm 2mm rgba(0,0,0,.18);
+  }
+  .illus-title-wrap{ min-width:0; flex:1; }
+  .illus-title{
+    font-size:17pt; font-weight:900; line-height:1; text-transform:uppercase;
+    color:color-mix(in srgb, var(--tk-accent) 75%, black 25%);
+  }
+  .illus-ribbon{
+    display:inline-block; margin-top:1.4mm; background:var(--tk-cta); color:#fff; font-weight:700;
+    font-size:6.4pt; padding:1mm 3mm; border-radius:3mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+  }
+  .illus-body{ position:relative; z-index:1; display:flex; justify-content:space-between; gap:3mm; margin:3mm 0; flex:1; min-height:0; }
+  .illus-prizes{ width:56%; min-width:0; display:flex; flex-direction:column; gap:1.4mm; overflow:hidden; }
+  .illus-prize{ display:flex; align-items:center; gap:1.4mm; min-width:0; }
+  .illus-prize-badge{
+    flex:none; width:4.6mm; height:4.6mm; border-radius:50%; color:#fff; font-weight:800; font-size:4pt;
+    display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .illus-prize-text{ flex:1; min-width:0; font-size:5.2pt; font-weight:700; color:#1e293b; line-height:1.15; }
+  .illus-prize-photo{
+    flex:none; width:7mm; height:7mm; border-radius:1.2mm; background-size:cover; background-position:center;
+    border:.5pt solid #d8dee0;
+  }
+  .illus-numbers{ width:42%; flex:none; display:flex; flex-direction:column; align-items:center; }
+  .illus-numbers-title{
+    background:var(--tk-accent); color:#fff; font-weight:700; font-size:5pt; text-transform:uppercase;
+    padding:1mm 2.4mm; border-radius:3mm; margin-bottom:1.4mm; text-align:center; white-space:nowrap;
+  }
+  .illus-numbers-grid{ display:grid; grid-template-columns:repeat(5, 1fr); gap:.7mm; width:100%; }
+  .illus-footer{ position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:2.4mm; }
+  .illus-date{
+    background:color-mix(in srgb, var(--tk-cta) 20%, white); border-radius:2mm; padding:1.4mm 3mm;
+    display:flex; flex-direction:column; align-items:flex-start; min-width:0;
+  }
+  .illus-date-label{ font-size:4.2pt; font-weight:700; text-transform:uppercase; color:color-mix(in srgb, var(--tk-cta) 80%, black 20%); }
+  .illus-date-value{ font-size:6.2pt; font-weight:800; color:#1e293b; }
+  .illus-luck{
+    flex:none; width:14mm; height:14mm; border-radius:50%; background:var(--tk-accent); color:#fff;
+    font-weight:800; font-size:4.4pt; line-height:1.15; text-align:center; display:flex; align-items:center; justify-content:center;
+  }
+  .illus-thanks{
+    position:relative; z-index:1; text-align:center; margin-top:1.6mm; border-radius:2mm; padding:1.2mm;
+    background:color-mix(in srgb, var(--tk-accent) 10%, white); color:color-mix(in srgb, var(--tk-accent) 85%, black 10%);
+    font-weight:700; font-size:5pt;
+  }
+
   /* type-specific field visibility, driven by #couponForm[data-card-type] */
-  #couponForm[data-card-type="carton"] #stubSection{ display:none; }
+  #couponForm[data-card-type="carton"] #stubSection,
+  #couponForm[data-card-type="illustrated"] #stubSection{ display:none; }
   #couponForm[data-card-type="coupon"] #numbersPerCardField{ display:none; }
   #couponForm[data-card-type="carton"] .badge-input{ display:none; }
+  .prize-photo-btn{
+    flex:0 0 auto; width:28px; height:28px; border-radius:6px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--muted); cursor:pointer; display:flex; align-items:center;
+    justify-content:center; font-size:13px; overflow:hidden; padding:0;
+  }
+  .prize-photo-btn img{ width:100%; height:100%; object-fit:cover; }
+  #couponForm:not([data-card-type="illustrated"]) .prize-photo-btn,
+  #couponForm:not([data-card-type="illustrated"]) [data-role="del-prize-photo"]{ display:none; }
 
   /* ---------------- print ---------------- */
   .print-only{ display:none; }
@@ -351,8 +418,9 @@
           <div class="seg" role="group" aria-label="Tipo de cartón">
             <button type="button" id="typeCoupon" aria-pressed="true">Cupón con talón</button>
             <button type="button" id="typeCarton" aria-pressed="false">Cartón multi-número</button>
+            <button type="button" id="typeIllustrated" aria-pressed="false">Cartón ilustrado</button>
           </div>
-          <p class="hint">El cartón multi-número muestra varios números para elegir por cartón, sin talón de control separado.</p>
+          <p class="hint">Los cartones multi-número y el ilustrado muestran varios números para elegir por cartón, sin talón de control separado. El ilustrado admite una foto por premio.</p>
         </section>
 
         <section class="field-group">
@@ -446,7 +514,7 @@
             <label for="numbersPerCard"><span class="lbl">Números por cartón</span>
               <div class="stepper">
                 <button type="button" data-step="-1" data-target="numbersPerCard">−</button>
-                <input type="number" id="numbersPerCard" min="1" max="12" step="1">
+                <input type="number" id="numbersPerCard" min="1" max="40" step="1">
                 <button type="button" data-step="1" data-target="numbersPerCard">+</button>
               </div>
             </label>
@@ -500,10 +568,12 @@
   var REF_H = 31;  // mm — reference coupon design height
   var CARTON_REF_W = 96; // mm — reference carton design width
   var CARTON_REF_H = 53; // mm — reference carton design height
+  var ILLUS_REF_W = 100; // mm — reference illustrated-carton design width
+  var ILLUS_REF_H = 140; // mm — reference illustrated-carton design height
   var PAGE_MARGIN = 6; // mm
 
   var defaults = {
-    cardType: "coupon", // "coupon" (talón) | "carton" (multi-número)
+    cardType: "coupon", // "coupon" (talón) | "carton" (multi-número) | "illustrated" (poster-style)
     numbersPerCard: 5,
     orgFull: "Asociación El Portal del Palmeral",
     orgShort: "Portal del Palmeral",
@@ -515,12 +585,12 @@
     accent: "#0d6b52",
     cta: "#b45309",
     prizes: [
-      {badge:"1", text:"Cafetera + Tostadora"},
-      {badge:"2", text:"Pava eléctrica"},
-      {badge:"3", text:"Set de 6 vasos + canasta"},
-      {badge:"4", text:"Set de tuppers"},
-      {badge:"5", text:"Prenda de tejido artesanal"},
-      {badge:"6-14", text:"Premios sorpresa"}
+      {badge:"1", text:"Cafetera + Tostadora", img:null},
+      {badge:"2", text:"Pava eléctrica", img:null},
+      {badge:"3", text:"Set de 6 vasos + canasta", img:null},
+      {badge:"4", text:"Set de tuppers", img:null},
+      {badge:"5", text:"Prenda de tejido artesanal", img:null},
+      {badge:"6-14", text:"Premios sorpresa", img:null}
     ],
     stubFields: ["Nombre y apellido","Teléfono / WhatsApp","Email / dirección","Vendedor"],
     orientation: "landscape",
@@ -583,10 +653,16 @@
   }
 
   function updateTypeButtons(){
-    var isCarton = state.cardType === "carton";
-    $("typeCoupon").setAttribute("aria-pressed", isCarton ? "false" : "true");
-    $("typeCarton").setAttribute("aria-pressed", isCarton ? "true" : "false");
-    $("couponForm").setAttribute("data-card-type", state.cardType);
+    var t = state.cardType;
+    $("typeCoupon").setAttribute("aria-pressed", t === "coupon" ? "true" : "false");
+    $("typeCarton").setAttribute("aria-pressed", t === "carton" ? "true" : "false");
+    $("typeIllustrated").setAttribute("aria-pressed", t === "illustrated" ? "true" : "false");
+    $("couponForm").setAttribute("data-card-type", t);
+    $("numbersPerCard").max = numbersPerCardMax();
+  }
+
+  function numbersPerCardMax(){
+    return state.cardType === "illustrated" ? 40 : 12;
   }
 
   function renderPrizeList(){
@@ -596,6 +672,11 @@
       var row = document.createElement("div");
       row.className = "list-row";
       row.innerHTML =
+        '<label class="prize-photo-btn" title="Foto del premio">' +
+          (p.img ? '<img src="'+p.img+'">' : '🖼') +
+          '<input type="file" accept="image/*" class="prize-photo-file" data-i="'+i+'" style="display:none">' +
+        '</label>' +
+        (p.img ? '<button type="button" class="icon-btn" data-role="del-prize-photo" data-i="'+i+'" title="Quitar foto">🗑</button>' : '') +
         '<input type="text" class="badge-input" data-role="badge" data-i="'+i+'" maxlength="6" value="'+escAttr(p.badge)+'" aria-label="Identificador del premio">' +
         '<input type="text" data-role="text" data-i="'+i+'" maxlength="60" value="'+escAttr(p.text)+'" aria-label="Descripción del premio">' +
         '<button type="button" class="icon-btn" data-role="del-prize" data-i="'+i+'" title="Quitar premio">✕</button>';
@@ -661,25 +742,36 @@
     onStateChanged();
   });
 
-  $("typeCoupon").addEventListener("click", function(){
-    if(state.cardType === "coupon") return;
-    state.cardType = "coupon";
-    state.orientation = "landscape";
-    state.cols = 2;
-    state.rows = 6;
-    fillFormFromState();
-    onStateChanged();
-  });
-  $("typeCarton").addEventListener("click", function(){
-    if(state.cardType === "carton") return;
-    state.cardType = "carton";
-    state.orientation = "portrait";
-    state.cols = 2;
-    state.rows = 5;
-    if(!state.numbersPerCard) state.numbersPerCard = 5;
-    fillFormFromState();
-    onStateChanged();
-  });
+  function applyCardTypeDefaults(type){
+    if(type === "coupon"){
+      state.orientation = "landscape";
+      state.cols = 2;
+      state.rows = 6;
+    } else if(type === "carton"){
+      state.orientation = "portrait";
+      state.cols = 2;
+      state.rows = 5;
+      if(!state.numbersPerCard || state.numbersPerCard > 12) state.numbersPerCard = 5;
+    } else if(type === "illustrated"){
+      state.orientation = "portrait";
+      state.cols = 1;
+      state.rows = 1;
+      if(!state.numbersPerCard || state.numbersPerCard < 10) state.numbersPerCard = 20;
+    }
+  }
+
+  function switchCardType(type){
+    return function(){
+      if(state.cardType === type) return;
+      state.cardType = type;
+      applyCardTypeDefaults(type);
+      fillFormFromState();
+      onStateChanged();
+    };
+  }
+  $("typeCoupon").addEventListener("click", switchCardType("coupon"));
+  $("typeCarton").addEventListener("click", switchCardType("carton"));
+  $("typeIllustrated").addEventListener("click", switchCardType("illustrated"));
 
   function readGridInput(id, min, max){
     var v = parseInt($(id).value, 10);
@@ -694,13 +786,13 @@
     state.rows = readGridInput("gridRows", 1, 14);
     onStateChanged();
   });
-  var STEP_LIMITS = { gridCols:[1,8], gridRows:[1,14], numbersPerCard:[1,12] };
+  var STEP_LIMITS = { gridCols:[1,8], gridRows:[1,14] };
   var STEP_STATE_KEY = { gridCols:"cols", gridRows:"rows", numbersPerCard:"numbersPerCard" };
   document.querySelectorAll(".stepper button[data-step]").forEach(function(btn){
     btn.addEventListener("click", function(){
       var targetId = btn.getAttribute("data-target");
       var delta = parseInt(btn.getAttribute("data-step"), 10);
-      var limits = STEP_LIMITS[targetId];
+      var limits = targetId === "numbersPerCard" ? [1, numbersPerCardMax()] : STEP_LIMITS[targetId];
       var min = limits[0], max = limits[1];
       var cur = parseInt($(targetId).value, 10) || min;
       var next = Math.max(min, Math.min(max, cur + delta));
@@ -725,7 +817,7 @@
   $("numbersPerCard").addEventListener("input", function(){
     var v = parseInt(this.value, 10);
     if(isNaN(v)) v = 1;
-    v = Math.max(1, Math.min(12, v));
+    v = Math.max(1, Math.min(numbersPerCardMax(), v));
     state.numbersPerCard = v;
     onStateChanged();
   });
@@ -739,6 +831,14 @@
     onStateChanged(true);
   });
   $("prizeList").addEventListener("click", function(e){
+    var delPhoto = e.target.closest('[data-role="del-prize-photo"]');
+    if(delPhoto){
+      var pi = parseInt(delPhoto.getAttribute("data-i"), 10);
+      state.prizes[pi].img = null;
+      renderPrizeList();
+      onStateChanged();
+      return;
+    }
     var t = e.target.closest('[data-role="del-prize"]');
     if(!t) return;
     var i = parseInt(t.getAttribute("data-i"), 10);
@@ -746,9 +846,35 @@
     renderPrizeList();
     onStateChanged();
   });
+  $("prizeList").addEventListener("change", function(e){
+    var t = e.target;
+    if(!t.classList || !t.classList.contains("prize-photo-file")) return;
+    var i = parseInt(t.getAttribute("data-i"), 10);
+    var file = t.files && t.files[0];
+    if(!file || !file.type.startsWith("image/")) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var img = new Image();
+      img.onload = function(){
+        var maxDim = 160;
+        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        var w = Math.max(1, Math.round(img.width * scale));
+        var h = Math.max(1, Math.round(img.height * scale));
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        state.prizes[i].img = canvas.toDataURL("image/jpeg", 0.82);
+        renderPrizeList();
+        onStateChanged();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
   $("addPrize").addEventListener("click", function(){
     if(state.prizes.length >= 20) return;
-    state.prizes.push({badge:String(state.prizes.length+1), text:"Nuevo premio"});
+    state.prizes.push({badge:String(state.prizes.length+1), text:"Nuevo premio", img:null});
     renderPrizeList();
     onStateChanged();
   });
@@ -857,8 +983,9 @@
     var cellH = (availH - gapY*(rows-1)) / rows;
     cellW = Math.max(cellW, 4);
     cellH = Math.max(cellH, 4);
-    var refW = state.cardType === "carton" ? CARTON_REF_W : REF_W;
-    var refH = state.cardType === "carton" ? CARTON_REF_H : REF_H;
+    var refW = REF_W, refH = REF_H;
+    if(state.cardType === "carton"){ refW = CARTON_REF_W; refH = CARTON_REF_H; }
+    else if(state.cardType === "illustrated"){ refW = ILLUS_REF_W; refH = ILLUS_REF_H; }
     var scaleX = cellW / refW;
     var scaleY = cellH / refH;
     return {
@@ -898,7 +1025,7 @@
   }
 
   function unitsPerCell(){
-    return state.cardType === "carton" ? state.numbersPerCard : 1;
+    return (state.cardType === "carton" || state.cardType === "illustrated") ? state.numbersPerCard : 1;
   }
   function totalUnits(){
     return Math.ceil(state.totalCoupons / unitsPerCell());
@@ -1031,6 +1158,62 @@
     );
   }
 
+  function illusNumberSizes(count){
+    var extra = Math.max(0, count - 20);
+    return {
+      font: Math.max(5, 8 - extra*0.15).toFixed(2) + "pt",
+      pad: Math.max(0.6, 1.2 - extra*0.03).toFixed(2) + "mm"
+    };
+  }
+
+  function illusInnerHTML(){
+    var priceHtml = state.price ? escText(state.price) : "$ ______";
+
+    var prizesHtml = state.prizes.map(function(p, i){
+      var badgeColor = (i % 2 === 0) ? "var(--tk-accent)" : "var(--tk-cta)";
+      var photoHtml = p.img ? '<span class="illus-prize-photo" style="background-image:url(\''+p.img+'\')"></span>' : "";
+      return '<div class="illus-prize">' +
+        '<span class="illus-prize-badge" style="background:'+badgeColor+'">'+escText(p.badge)+'</span>' +
+        '<span class="illus-prize-text">'+escText(p.text)+'</span>' +
+        photoHtml +
+      '</div>';
+    }).join("");
+
+    var ns = illusNumberSizes(state.numbersPerCard);
+    var boxesHtml = "";
+    for(var i=0;i<state.numbersPerCard;i++){
+      boxesHtml += '<div class="num-box" data-role="cardnum" style="font-size:'+ns.font+';padding:'+ns.pad+' 0;"></div>';
+    }
+
+    var wmHtml = state.watermark ? '<div class="wm" style="background-image:url(\''+state.watermark+'\')"></div>' : "";
+
+    return (
+      wmHtml +
+      '<div class="illus-header">' +
+        '<span class="illus-price-ticket">Vale<br>'+priceHtml+'</span>' +
+        '<div class="illus-title-wrap">' +
+          '<div class="illus-title">'+escText(state.title)+'</div>' +
+          '<div class="illus-ribbon">'+escText(state.subtitle)+'</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="illus-body">' +
+        '<div class="illus-prizes">'+prizesHtml+'</div>' +
+        '<div class="illus-numbers">' +
+          '<div class="illus-numbers-title">Elegí tu número</div>' +
+          '<div class="illus-numbers-grid">'+boxesHtml+'</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="illus-footer">' +
+        '<div class="illus-date">' +
+          '<span class="illus-date-label">Se sortea el</span>' +
+          '<span class="illus-date-value">'+escText(state.drawDate)+'</span>' +
+        '</div>' +
+        '<div class="illus-luck">¡Mucha<br>suerte!</div>' +
+      '</div>' +
+      '<div class="illus-thanks">¡Gracias por colaborar!</div>'
+    );
+  }
+
   function makeCellTemplateNode(){
     var cell = document.createElement("div");
     cell.className = "coupon-cell";
@@ -1038,6 +1221,9 @@
     if(state.cardType === "carton"){
       inner.className = "carton-card";
       inner.innerHTML = cartonInnerHTML();
+    } else if(state.cardType === "illustrated"){
+      inner.className = "illus-card";
+      inner.innerHTML = illusInnerHTML();
     } else {
       inner.className = "coupon";
       inner.innerHTML = couponInnerHTML();
@@ -1068,7 +1254,7 @@
   function fillCellUnit(node, unitIndex){
     var perCell = unitsPerCell();
     var startN = state.startNumber + unitIndex * perCell;
-    if(state.cardType === "carton"){
+    if(state.cardType === "carton" || state.cardType === "illustrated"){
       var remaining = Math.min(perCell, state.totalCoupons - unitIndex * perCell);
       fillCartonNumbers(node, startN, remaining);
     } else {
