@@ -530,6 +530,11 @@
             <input type="range" id="prizeFontScale" min="50" max="300" step="5" value="100">
             <output id="prizeFontScaleOut">100%</output>
           </div>
+          <label for="prizePhotoScale"><span class="lbl">Tamaño de la foto del premio (ilustrado)</span></label>
+          <div class="range-row">
+            <input type="range" id="prizePhotoScale" min="50" max="300" step="5" value="100">
+            <output id="prizePhotoScaleOut">100%</output>
+          </div>
         </section>
 
         <section class="field-group" id="stubSection">
@@ -731,6 +736,7 @@
     numberFlow: "row", // orden de corte en la hoja: "row" (fila por fila) | "column" (columna por columna)
     numberGridFlow: "column", // forma de los N números dentro del cartón: "row" (una fila) | "column" (una columna)
     prizeFontScale: 1,
+    prizePhotoScale: 1,
     numberBoxScale: 1,
     numberFontScale: 1,
     headingFontScale: 1,
@@ -829,6 +835,8 @@
     $("watermarkOpacityOut").textContent = state.watermarkOpacity + "%";
     $("prizeFontScale").value = Math.round(state.prizeFontScale * 100);
     $("prizeFontScaleOut").textContent = Math.round(state.prizeFontScale * 100) + "%";
+    $("prizePhotoScale").value = Math.round(state.prizePhotoScale * 100);
+    $("prizePhotoScaleOut").textContent = Math.round(state.prizePhotoScale * 100) + "%";
     $("numberBoxScale").value = Math.round(state.numberBoxScale * 100);
     $("numberBoxScaleOut").textContent = Math.round(state.numberBoxScale * 100) + "%";
     $("numberFontScale").value = Math.round(state.numberFontScale * 100);
@@ -1204,6 +1212,11 @@
   $("prizeFontScale").addEventListener("input", function(){
     state.prizeFontScale = parseInt(this.value, 10) / 100;
     $("prizeFontScaleOut").textContent = this.value + "%";
+    onStateChanged(true);
+  });
+  $("prizePhotoScale").addEventListener("input", function(){
+    state.prizePhotoScale = parseInt(this.value, 10) / 100;
+    $("prizePhotoScaleOut").textContent = this.value + "%";
     onStateChanged(true);
   });
   $("numberBoxScale").addEventListener("input", function(){
@@ -1734,10 +1747,11 @@
     var ss = state.secondaryFontScale || 1;
     var priceHtml = state.price ? escText(state.price) : "$ ______";
     var prizeTextFont = illusCalc("6", "pt", state.prizeFontScale || 1);
+    var prizePhotoSize = illusCalc("7", "mm", state.prizePhotoScale || 1);
 
     var prizesHtml = state.prizes.map(function(p, i){
       var badgeColor = (i % 2 === 0) ? "var(--tk-accent)" : "var(--tk-cta)";
-      var photoHtml = p.img ? '<span class="illus-prize-photo" style="background-image:url(\''+p.img+'\')"></span>' : "";
+      var photoHtml = p.img ? '<span class="illus-prize-photo" style="background-image:url(\''+p.img+'\');width:'+prizePhotoSize+';height:'+prizePhotoSize+'"></span>' : "";
       return '<div class="illus-prize">' +
         '<span class="illus-prize-badge" style="background:'+badgeColor+'">'+escText(p.badge)+'</span>' +
         '<span class="illus-prize-text" style="font-size:'+prizeTextFont+'">'+escText(p.text)+'</span>' +
