@@ -546,6 +546,15 @@
 
         <section class="field-group">
           <h2>Formato de hoja</h2>
+          <label for="pageSize"><span class="lbl">Tamaño de papel</span>
+            <select id="pageSize">
+              <option value="A4">A4 (210 × 297 mm)</option>
+              <option value="Oficio">Oficio (216 × 330 mm)</option>
+              <option value="A3">A3 (297 × 420 mm)</option>
+              <option value="Carta">Carta / Letter (216 × 279 mm)</option>
+              <option value="A5">A5 (148 × 210 mm)</option>
+            </select>
+          </label>
           <div class="seg" role="group" aria-label="Orientación de la hoja">
             <button type="button" id="orientLandscape" aria-pressed="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="1.5"/></svg>
@@ -615,7 +624,7 @@
               <output id="numberFontScaleOut">100%</output>
             </div>
           </div>
-          <p class="hint">El cartón se agranda o achica manteniendo siempre su proporción original (sin deformarse) para entrar en la grilla que definas arriba, en cualquier hoja A4.</p>
+          <p class="hint">El cartón se agranda o achica manteniendo siempre su proporción original (sin deformarse) para entrar en la grilla que definas arriba, en cualquier tamaño de hoja.</p>
         </section>
 
         <section class="field-group">
@@ -672,7 +681,7 @@
         <span class="label">Vista previa — hoja 1</span>
         <button type="button" class="cta" id="printBtn">🖨️ Generar PDF / Imprimir talonario</button>
       </div>
-      <p class="print-hint" id="printHint">En el diálogo de impresión elegí "Guardar como PDF", papel A4 horizontal, márgenes "Ninguno" y activá "Gráficos de fondo" para que se vean los colores.</p>
+      <p class="print-hint" id="printHint">En el diálogo de impresión elegí "Guardar como PDF", papel A4 horizontal, márgenes "Ninguno" y activá "Gráficos de fondo" para que se vean los colores. Si tu impresora no lista el tamaño de papel elegido (ej. Oficio), seleccioná "Más ajustes" → "Tamaño de papel" → "Administrado por el sistema" o cargalo manualmente.</p>
       <div class="sheet-stage">
         <div id="previewOuter">
           <div class="a4-sheet" id="previewSheet"></div>
@@ -698,6 +707,13 @@
   var ILLUS_REF_W = 100; // mm — reference illustrated-carton design width
   var ILLUS_REF_H = 140; // mm — reference illustrated-carton design height
   var PAGE_MARGIN = 6; // mm
+  var PAGE_SIZES = {
+    A4:     { w: 210, h: 297, label: "A4" },
+    A3:     { w: 297, h: 420, label: "A3" },
+    Oficio: { w: 216, h: 330, label: "Oficio" },
+    Carta:  { w: 216, h: 279, label: "Carta (Letter)" },
+    A5:     { w: 148, h: 210, label: "A5" }
+  };
 
   var defaults = {
     cardType: "coupon", // "coupon" (talón) | "carton" (multi-número) | "illustrated" (poster-style)
@@ -720,6 +736,7 @@
       {badge:"6-14", text:"Premios sorpresa", img:null}
     ],
     stubFields: ["Nombre y apellido","Teléfono / WhatsApp","Email / dirección","Vendedor"],
+    pageSize: "A4",
     orientation: "landscape",
     cols: 2,
     rows: 6,
@@ -826,6 +843,7 @@
     $("drawDate").value = state.drawDate;
     $("place").value = state.place;
     $("price").value = state.price;
+    $("pageSize").value = state.pageSize;
     $("gridCols").value = state.cols;
     $("gridRows").value = state.rows;
     $("startNumber").value = state.startNumber;
@@ -1013,6 +1031,11 @@
     projectsStore.projects.splice(idx, 1);
     var nextId = projectsStore.projects[Math.max(0, idx - 1)].id;
     switchToProject(nextId);
+  });
+
+  $("pageSize").addEventListener("change", function(){
+    state.pageSize = this.value;
+    onStateChanged();
   });
 
   $("orientLandscape").addEventListener("click", function(){
@@ -1465,8 +1488,9 @@
   // ---------------- layout math (orientation + grid -> coupon scale) ----------------
   function computeLayout(){
     var landscape = state.orientation === "landscape";
-    var pageW = landscape ? 297 : 210;
-    var pageH = landscape ? 210 : 297;
+    var size = PAGE_SIZES[state.pageSize] || PAGE_SIZES.A4;
+    var pageW = landscape ? size.h : size.w;
+    var pageH = landscape ? size.w : size.h;
     var cols = state.cols, rows = state.rows;
     var availW = pageW - PAGE_MARGIN*2;
     var availH = pageH - PAGE_MARGIN*2;
@@ -1506,8 +1530,11 @@
   }
 
   function updatePageSizeStyle(){
+    var size = PAGE_SIZES[state.pageSize] || PAGE_SIZES.A4;
     var landscape = state.orientation === "landscape";
-    var css = "@page{ size:A4 " + (landscape ? "landscape" : "portrait") + "; margin:0; }";
+    var pageW = landscape ? size.h : size.w;
+    var pageH = landscape ? size.w : size.h;
+    var css = "@page{ size:" + pageW + "mm " + pageH + "mm; margin:0; }";
     var el = document.getElementById("pageSizeStyle");
     if(!el){
       el = document.createElement("style");
@@ -1529,9 +1556,10 @@
     var total = state.totalCoupons;
     var sheets = Math.ceil(totalUnits() / layout.perSheet);
     var last = state.startNumber + total - 1;
+    var pageLabel = (PAGE_SIZES[state.pageSize] || PAGE_SIZES.A4).label;
     $("stats").innerHTML =
       '<div class="stat"><b class="num">'+total+'</b><span>Cupones</span></div>' +
-      '<div class="stat"><b class="num">'+sheets+'</b><span>Hojas A4</span></div>' +
+      '<div class="stat"><b class="num">'+sheets+'</b><span>Hojas '+escText(pageLabel)+'</span></div>' +
       '<div class="stat"><b class="num">'+layout.perSheet+'</b><span>Por hoja</span></div>' +
       '<div class="stat"><b class="num">'+pad4(state.startNumber)+'–'+pad4(last)+'</b><span>Numeración</span></div>';
 
@@ -1540,8 +1568,9 @@
     $("gridWarn").classList.toggle("show", layout.dense);
 
     var landscape = state.orientation === "landscape";
-    $("printHint").textContent = 'En el diálogo de impresión elegí "Guardar como PDF", papel A4 ' +
-      (landscape ? "horizontal" : "vertical") + ', márgenes "Ninguno" y activá "Gráficos de fondo" para que se vean los colores.';
+    $("printHint").textContent = 'En el diálogo de impresión elegí "Guardar como PDF", papel ' + pageLabel + ' ' +
+      (landscape ? "horizontal" : "vertical") + ', márgenes "Ninguno" y activá "Gráficos de fondo" para que se vean los colores. ' +
+      (state.pageSize === "A4" ? "" : 'Si tu impresora no lista "' + pageLabel + '", elegí "Más ajustes" → tamaño de papel personalizado con estas medidas.');
   }
 
   function pad4(n){
